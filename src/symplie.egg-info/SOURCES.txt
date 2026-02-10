@@ -1,0 +1,11 @@
+README
+pyproject.toml
+src/symplie/integrators.py
+src/symplie/invariants.py
+src/symplie/so3.py
+src/symplie.egg-info/PKG-INFO
+src/symplie.egg-info/SOURCES.txt
+src/symplie.egg-info/dependency_links.txt
+src/symplie.egg-info/requires.txt
+src/symplie.egg-info/top_level.txt
+tests/test_invariants.py

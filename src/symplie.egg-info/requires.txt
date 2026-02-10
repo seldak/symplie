@@ -1,0 +1,5 @@
+jax>=0.4
+
+[dev]
+pytest>=8
+matplotlib>=3.8

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "symplie"
+version = "0.1.0"
+description = "Structure-preserving Lie-group integrators on SO(3)/SE(3) (v1: free rigid body SO(3))"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "BSD-3-Clause" }
+dependencies = [
+  "jax>=0.4"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "matplotlib>=3.8"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
