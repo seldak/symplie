@@ -5,10 +5,11 @@ A small, test-driven library for **structure-preserving Lie-group integration** 
 Version 1 implements a **torque-free rigid body** integrator on **SO(3)** with:
 - SO(3) updates using the exponential map (no quaternion drift)
 - a discrete variational / Moser–Veselov style step
-- CI checks for:
+- regression tests for:
   - rotation validity ($R^TR \approx I$)
   - **spatial momentum conservation** ($L = R\pi$)
   - bounded energy drift
+  - SO(3) exponential/logarithm round trips
 
 ## What’s implemented in v1
 
@@ -22,6 +23,31 @@ One step computes a relative rotation $F \in SO(3)$ then updates:
 
 This implies spatial momentum is conserved:
 $R_{k+1} \pi_{k+1} = R_k \pi_k$.
+
+### SO(3) exponential and logarithm maps
+
+`symplie.so3` provides complementary maps between rotation vectors and
+rotation matrices:
+
+```python
+import jax.numpy as jnp
+from symplie.so3 import exp as expSO3
+from symplie.so3 import log as logSO3
+
+w = jnp.array([0.1, -0.2, 0.3])
+R = expSO3(w)
+w_recovered = logSO3(R)
+```
+
+`logSO3(R)` returns the principal rotation vector $w \in \mathbb{R}^3$ whose
+direction is the rotation axis and whose magnitude is the angle in radians,
+with principal angle in $[0, \pi]$. The implementation uses separate numerical
+paths near the identity and near $\pi$, where the standard closed-form formula
+is ill-conditioned. Both maps are compatible with JAX JIT compilation.
+
+For rotation vectors on the principal branch, the test suite checks
+`logSO3(expSO3(w)) \approx w`. It also checks
+`expSO3(logSO3(R)) \approx R`, including rotations close to $\pi$.
 
 ## Install
 
