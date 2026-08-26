@@ -110,7 +110,3 @@ python scripts/make_plots.py --out artifacts
  -  C++ reference implementation (pybind11) + benchmarks
 
  -  constraint support (discrete multipliers)
-
-## License
-
-BSD-3-Clause
