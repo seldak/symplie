@@ -5,7 +5,9 @@ import pytest
 jax.config.update("jax_enable_x64", True)
 
 from symplie.so3 import exp as expSO3
+from symplie.so3 import hat
 from symplie.so3 import log as logSO3
+from symplie.so3 import vee
 
 
 def test_log_identity_is_zero():
@@ -48,3 +50,20 @@ def test_log_is_jittable():
     compiled = jax.jit(logSO3)(R)
 
     assert jnp.allclose(compiled, eager, atol=1e-12, rtol=1e-12)
+
+
+def test_hat_and_vee_accept_leading_batch_dimensions():
+    vectors = jnp.array(
+        [
+            [0.1, -0.2, 0.3],
+            [-0.4, 0.5, -0.6],
+        ],
+        dtype=jnp.float64,
+    )
+
+    matrices = hat(vectors)
+    recovered = vee(matrices)
+
+    assert matrices.shape == (2, 3, 3)
+    assert recovered.shape == (2, 3)
+    assert jnp.array_equal(recovered, vectors)

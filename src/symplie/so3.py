@@ -4,18 +4,25 @@ import jax
 import jax.numpy as jnp
 
 def hat(w: jnp.ndarray) -> jnp.ndarray:
-    """so(3) hat operator: R^3 -> skew(3)."""
-    wx, wy, wz = w
-    return jnp.array(
-        [[0.0, -wz,  wy],
-         [wz,  0.0, -wx],
-         [-wy, wx,  0.0]],
-        dtype=w.dtype
+    """so(3) hat operator: (..., 3) -> (..., 3, 3)."""
+    wx, wy, wz = jnp.moveaxis(w, -1, 0)
+    zero = jnp.zeros_like(wx)
+
+    row_0 = jnp.stack([zero, -wz, wy], axis=-1)
+    row_1 = jnp.stack([wz, zero, -wx], axis=-1)
+    row_2 = jnp.stack([-wy, wx, zero], axis=-1)
+
+    return jnp.stack(
+        [row_0, row_1, row_2],
+        axis=-2,
     )
 
 def vee(W: jnp.ndarray) -> jnp.ndarray:
-    """so(3) vee operator: skew(3) -> R^3."""
-    return jnp.array([W[2, 1], W[0, 2], W[1, 0]], dtype=W.dtype)
+    """so(3) vee operator: (..., 3, 3) -> (..., 3)."""
+    return jnp.stack(
+        [W[..., 2, 1], W[..., 0, 2], W[..., 1, 0]],
+        axis=-1,
+    )
 
 def exp(w: jnp.ndarray) -> jnp.ndarray:
     """SO(3) exponential map using Rodrigues, stable for small angles."""
