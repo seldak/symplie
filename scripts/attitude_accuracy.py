@@ -139,9 +139,16 @@ def main():
     from matplotlib.ticker import NullFormatter
 
     dt_values = [row["dt_s"] for row in rows]
+    errors = [row["vi_attitude_error_rad"] for row in rows]
+    observed_order = np.polyfit(np.log(dt_values), np.log(errors), 1)[0]
+    # Offset the slope guide so it does not cover the measured errors.
+    guide = 0.5 * errors[-1] * (np.asarray(dt_values) / dt_values[-1])**2
     fig, ax = plt.subplots(figsize=(7, 5), layout="constrained")
-    ax.loglog(dt_values, [row["vi_attitude_error_rad"] for row in rows], "o-",
+    ax.loglog(dt_values, errors, "o-",
               label="Moser–Veselov")
+    ax.loglog(dt_values, guide, "--", color="gray", label=r"$C\,dt^2$ guide")
+    ax.text(0.97, 0.06, f"Observed order: {observed_order:.2f}",
+            transform=ax.transAxes, ha="right")
     ax.set_xlabel("Timestep [s]")
     ax.set_xticks(dt_values, labels=[f"{dt:g}" for dt in dt_values])
     ax.xaxis.set_minor_formatter(NullFormatter())

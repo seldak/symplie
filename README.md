@@ -143,8 +143,9 @@ of four, consistent with second-order convergence.
 
 ![Spatial momentum deviation over 20 seconds](artifacts/spatial_momentum_error.png)
 
-Spatial angular momentum over 20 seconds at $dt=0.01$ s. The baseline uses
-RK4 for body momentum and exponential attitude updates.
+Spatial angular momentum over 20 seconds at $dt=0.01$ s. The variational
+result stays at floating-point roundoff. The baseline couples RK4 on body
+momentum with midpoint exponential updates of attitude.
 
 [Relative energy deviation](artifacts/energy_drift.png) is available separately.
 
