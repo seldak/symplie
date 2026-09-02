@@ -4,12 +4,14 @@ A small, test-driven library for **structure-preserving Lie-group integration** 
 
 Version 1 implements a **torque-free rigid body** integrator on **SO(3)** with:
 - SO(3) updates using the exponential map (no quaternion drift)
+- SO(3) and SE(3) exponential/logarithm maps
 - a discrete variational / Moser–Veselov style step
 - regression tests for:
   - rotation validity ($R^TR \approx I$)
   - **spatial momentum conservation** ($L = R\pi$)
   - bounded energy drift
   - SO(3) exponential/logarithm round trips
+  - SE(3) algebra and exponential/logarithm round trips
 
 ## What’s implemented in v1
 
@@ -48,6 +50,19 @@ is ill-conditioned. Both maps are compatible with JAX JIT compilation.
 For rotation vectors on the principal branch, the test suite checks
 `logSO3(expSO3(w)) \approx w`. It also checks
 `expSO3(logSO3(R)) \approx R`, including rotations close to $\pi$.
+
+### SE(3) exponential and logarithm maps
+
+SE(3) twists use the convention $\xi=[\rho,\phi]$, with translation first and
+the SO(3) rotation vector second. Run the JIT-compiled round-trip example with:
+
+```bash
+python examples/se3_exp_log.py
+```
+
+The example maps a mixed translational and rotational twist into a homogeneous
+transformation, recovers the principal twist, and reports the maximum numerical
+error.
 
 ## Install
 
