@@ -49,6 +49,11 @@ with principal angle in $[0, \pi]$. The implementation uses separate numerical
 paths near the identity and near $\pi$, where the standard closed-form formula
 is ill-conditioned. Both maps are compatible with JAX JIT compilation.
 
+`logSO3` assumes a proper rotation; its result is undefined otherwise.
+Use `logSO3_checked(R)` to raise `ValueError` on invalid input outside JIT,
+or `is_proper_rotation(R)` for a boolean check inside JIT. Both are exported
+from `symplie` and accept an `atol` argument (default `1e-6`).
+
 For rotation vectors on the principal branch, the test suite checks
 `logSO3(expSO3(w)) \approx w`. It also checks
 `expSO3(logSO3(R)) \approx R`, including rotations close to $\pi$.

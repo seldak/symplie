@@ -3,6 +3,8 @@ from __future__ import annotations
 import jax
 import jax.numpy as jnp
 
+from .invariants import determinant_error, ortho_error
+
 def hat(w: jnp.ndarray) -> jnp.ndarray:
     """so(3) hat operator: (..., 3) -> (..., 3, 3)."""
     wx, wy, wz = jnp.moveaxis(w, -1, 0)
@@ -49,7 +51,7 @@ def exp(w: jnp.ndarray) -> jnp.ndarray:
     return jax.lax.cond(theta_squared < 1e-14, small, general, operand=None)
 
 def log(R: jnp.ndarray) -> jnp.ndarray:
-    """SO(3) logarithm map returning the principal rotation vector."""
+    """Principal rotation vector. Undefined if R is not a proper rotation."""
     # For R in SO(3), trace(R) = 1 + 2*cos(theta). Roundoff can push
     # the inferred cosine just outside arccos's valid interval.
     cosine = jnp.clip(0.5 * (jnp.trace(R) - 1.0), -1.0, 1.0)
@@ -120,3 +122,13 @@ def log(R: jnp.ndarray) -> jnp.ndarray:
         ),
         operand=None,
     )
+
+def is_proper_rotation(R: jnp.ndarray, atol: float = 1e-6) -> jnp.ndarray:
+    """Check orthogonality and det(R) = +1 for a (3, 3) matrix. JIT-compatible."""
+    return (ortho_error(R) < atol) & (determinant_error(R) < atol)
+
+def log_checked(R: jnp.ndarray, atol: float = 1e-6) -> jnp.ndarray:
+    """Principal log with SO(3) validation. Raises ValueError; not for JIT."""
+    if not bool(jnp.all(is_proper_rotation(R, atol))):
+        raise ValueError("log_checked expects a proper rotation")
+    return log(R)
