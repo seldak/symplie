@@ -26,7 +26,7 @@ def vee(W: jnp.ndarray) -> jnp.ndarray:
 
 def exp(w: jnp.ndarray) -> jnp.ndarray:
     """SO(3) exponential map using Rodrigues, stable for small angles."""
-    theta = jnp.linalg.norm(w)
+    theta_squared = jnp.dot(w, w)
     K = hat(w)
     I = jnp.eye(3, dtype=w.dtype)
 
@@ -34,24 +34,28 @@ def exp(w: jnp.ndarray) -> jnp.ndarray:
         # Series expansions:
         # sin(theta)/theta ≈ 1 - t^2/6 + t^4/120
         # (1-cos(theta))/theta^2 ≈ 1/2 - t^2/24 + t^4/720
-        t2 = theta * theta
+        t2 = theta_squared
         a = 1.0 - t2 / 6.0 + (t2 * t2) / 120.0
         b = 0.5 - t2 / 24.0 + (t2 * t2) / 720.0
         return I + a * K + b * (K @ K)
 
     def general(_):
+        # Keep this branch finite when vmap evaluates it at zero.
+        theta = jnp.sqrt(jnp.where(theta_squared < 1e-14, 1.0, theta_squared))
         a = jnp.sin(theta) / theta
         b = (1.0 - jnp.cos(theta)) / (theta * theta)
         return I + a * K + b * (K @ K)
 
-    return jax.lax.cond(theta < 1e-7, small, general, operand=None)
+    return jax.lax.cond(theta_squared < 1e-14, small, general, operand=None)
 
 def log(R: jnp.ndarray) -> jnp.ndarray:
     """SO(3) logarithm map returning the principal rotation vector."""
     # For R in SO(3), trace(R) = 1 + 2*cos(theta). Roundoff can push
     # the inferred cosine just outside arccos's valid interval.
     cosine = jnp.clip(0.5 * (jnp.trace(R) - 1.0), -1.0, 1.0)
-    theta = jnp.arccos(cosine)
+    small_angle = cosine >= jnp.cos(jnp.asarray(1e-4, dtype=R.dtype))
+    # The small-angle series does not need arccos, whose derivative at 1 is infinite.
+    theta = jnp.arccos(jnp.where(small_angle, 0.0, cosine))
 
     # vee(R - R.T) / 2 = sin(theta) * axis.
     skew_vector = 0.5 * vee(R - R.T)
@@ -109,7 +113,7 @@ def log(R: jnp.ndarray) -> jnp.ndarray:
         return (theta / jnp.sin(theta)) * skew_vector
 
     return jax.lax.cond(
-        theta < 1e-4,
+        small_angle,
         small,
         lambda _: jax.lax.cond(
             jnp.pi - theta < 1e-4, near_pi, general, operand=None

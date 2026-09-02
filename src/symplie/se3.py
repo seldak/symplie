@@ -55,8 +55,10 @@ def vee(X: jnp.ndarray) -> jnp.ndarray:
 
 
 def _rotation_angle(phi: jnp.ndarray) -> jnp.ndarray:
-    """Return the angle represented by an SO(3) rotation vector."""
-    return jnp.linalg.norm(phi)
+    """Return the rotation angle, floored below the small-angle threshold."""
+    # The series handles smaller angles; the floor keeps unused divisions finite.
+    minimum_angle = 0.5 * jnp.cbrt(jnp.finfo(phi.dtype).eps)
+    return jnp.sqrt(jnp.maximum(jnp.dot(phi, phi), minimum_angle**2))
 
 
 def left_jacobian_SO3(phi: jnp.ndarray) -> jnp.ndarray:
