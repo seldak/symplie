@@ -1,19 +1,19 @@
-# symplie (v1)
+# SympLie
 
-A small, test-driven library for **structure-preserving Lie-group integration** on **SO(3)** / **SE(3)**.
+[![CI](https://github.com/seldak/symplie/actions/workflows/ci.yml/badge.svg)](https://github.com/seldak/symplie/actions/workflows/ci.yml)
 
-Version 1 implements a **torque-free rigid body** integrator on **SO(3)** with:
-- SO(3) updates using the exponential map (no quaternion drift)
-- SO(3) and SE(3) exponential/logarithm maps
-- a discrete variational / Moser–Veselov style step
-- regression tests for:
-  - rotation validity ($R^TR \approx I$)
-  - **spatial momentum conservation** ($L = R\pi$)
-  - bounded energy drift
-  - SO(3) exponential/logarithm round trips
-  - SE(3) algebra and exponential/logarithm round trips
+SympLie is a compact, test-driven JAX library for Lie-group operations and
+structure-preserving rigid-body integration on SO(3) and SE(3).
 
-## What’s implemented in v1
+It currently provides:
+
+- A Moser–Veselov-style variational integrator for a torque-free rigid body.
+- Numerically stable SO(3) and SE(3) exponential and logarithm maps.
+- JIT-compatible hat/vee operators and SO(3) left Jacobians.
+- Regression tests for rotation validity, invariant preservation, and Lie-group
+  round trips, including small-angle and near-$\pi$ cases.
+
+## Free rigid-body integrator
 
 State is $(R, \pi)$:
 - $R \in SO(3)$ orientation
@@ -28,13 +28,11 @@ $R_{k+1} \pi_{k+1} = R_k \pi_k$.
 
 ### SO(3) exponential and logarithm maps
 
-`symplie.so3` provides complementary maps between rotation vectors and
-rotation matrices:
+SympLie provides complementary maps between rotation vectors and matrices:
 
 ```python
 import jax.numpy as jnp
-from symplie.so3 import exp as expSO3
-from symplie.so3 import log as logSO3
+from symplie import expSO3, logSO3
 
 w = jnp.array([0.1, -0.2, 0.3])
 R = expSO3(w)
@@ -66,14 +64,17 @@ error.
 
 ## Install
 
-CPU-only install for JAX is typically just:
+Create an environment and install the package from the repository:
 
 ```bash
-pip install -U jax
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
 ```
 
-(That installs jax and a matching jaxlib wheel.)
-See JAX installation docs for GPU/TPU variants.
+JAX accelerator installations depend on the platform and CUDA version. Follow
+the [official JAX installation guide](https://docs.jax.dev/en/latest/installation.html)
+for GPU or TPU support.
 
 For development:
 
@@ -82,16 +83,23 @@ pip install -e ".[dev]"
 ```
 
 ## Quickstart
+
 ```python
 import jax.numpy as jnp
-from symplie.integrators import simulate_free_rigid_body
-from symplie.invariants import spatial_momentum, energy
+from symplie import energy, simulate_free_rigid_body, spatial_momentum
 
-J  = jnp.diag(jnp.array([0.6, 1.0, 1.8]))
+J = jnp.diag(jnp.array([0.6, 1.0, 1.8]))
 R0 = jnp.eye(3)
 pi0 = jnp.array([0.2, 0.7, 1.0])
 
-Rs, pis = simulate_free_rigid_body(R0, pi0, J, dt=1e-2, steps=2000, newton_iters=6)
+Rs, pis = simulate_free_rigid_body(
+    R0,
+    pi0,
+    J,
+    dt=1e-2,
+    steps=2000,
+    newton_iters=6,
+)
 
 L0 = spatial_momentum(Rs[0], pis[0])
 E0 = energy(pis[0], J)
@@ -99,29 +107,27 @@ E0 = energy(pis[0], J)
 
 ## Run tests
 
-```
+```bash
 pytest
 ```
 
-Generate example plots
+## Generate plots
 
-```
+```bash
 python scripts/make_plots.py --out artifacts
 ```
 
-## Outputs:
+This creates:
 
 ```
-    artifacts/energy_drift.png
-    artifacts/spatial_momentum_error.png
+artifacts/energy_drift.png
+artifacts/spatial_momentum_error.png
 ```
 
-## Roadmap (next)
+## Roadmap
 
- -  $SE(3)$ dynamics (translation + forces)
-
- -  IMU-driven propagation (bias/noise models)
-
- -  C++ reference implementation (pybind11) + benchmarks
-
- -  constraint support (discrete multipliers)
+- SE(3) variational rigid-body dynamics with linear/angular momentum and
+  external wrenches.
+- IMU-driven propagation with bias and noise models.
+- A C++ reference implementation with pybind11 benchmarks.
+- Constraint support through discrete multipliers.

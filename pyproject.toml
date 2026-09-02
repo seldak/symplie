@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "symplie"
 version = "0.1.0"
-description = "Structure-preserving Lie-group integrators on SO(3)/SE(3) (v1: free rigid body SO(3))"
+description = "JAX Lie-group operations and structure-preserving rigid-body integration"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

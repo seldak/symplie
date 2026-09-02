@@ -53,8 +53,11 @@ def vee(X: jnp.ndarray) -> jnp.ndarray:
     rho = X[:3, 3]
     return jnp.concatenate((rho, phi))
 
+
 def _rotation_angle(phi: jnp.ndarray) -> jnp.ndarray:
+    """Return the angle represented by an SO(3) rotation vector."""
     return jnp.linalg.norm(phi)
+
 
 def left_jacobian_SO3(phi: jnp.ndarray) -> jnp.ndarray:
     """Return the SO(3) left Jacobian used by the SE(3) exponential."""
@@ -78,6 +81,7 @@ def left_jacobian_SO3(phi: jnp.ndarray) -> jnp.ndarray:
     threshold = jnp.cbrt(jnp.finfo(phi.dtype).eps)
     return jax.lax.cond(theta < threshold, small, general, operand=None)
 
+
 def left_jacobian_inverse_SO3(phi: jnp.ndarray) -> jnp.ndarray:
     """Return the inverse SO(3) left Jacobian used by the SE(3) logarithm."""
     theta = _rotation_angle(phi)
@@ -90,17 +94,13 @@ def left_jacobian_inverse_SO3(phi: jnp.ndarray) -> jnp.ndarray:
 
     def general(_):
         theta2 = theta**2
-        theta3 = theta2 * theta
-        return (
-            I
-            - 0.5 * Phi
-            + (1/theta2 - (1 + jnp.cos(theta)) / (2.0 * theta * jnp.sin(theta)) ) * Phi2
+        coefficient = 1.0 / theta2 - (
+            (1.0 + jnp.cos(theta)) / (2.0 * theta * jnp.sin(theta))
         )
+        return I - 0.5 * Phi + coefficient * Phi2
 
     threshold = jnp.cbrt(jnp.finfo(phi.dtype).eps)
     return jax.lax.cond(theta < threshold, small, general, operand=None)
-
-
 
 
 def exp(xi: jnp.ndarray) -> jnp.ndarray:
