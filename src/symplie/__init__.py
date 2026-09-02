@@ -1,6 +1,11 @@
 """Public API for SympLie."""
 
-from .integrators import simulate_free_rigid_body, solve_F, solve_F_with_info
+from .integrators import (
+    SolverInfo,
+    simulate_free_rigid_body,
+    solve_F,
+    solve_F_with_info,
+)
 from .invariants import determinant_error, energy, ortho_error, spatial_momentum
 from .se3 import exp as expSE3
 from .se3 import hat as hatSE3
@@ -13,6 +18,7 @@ from .so3 import log as logSO3
 from .so3 import vee as veeSO3
 
 __all__ = [
+    "SolverInfo",
     "determinant_error",
     "energy",
     "expSE3",

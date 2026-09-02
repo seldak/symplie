@@ -8,6 +8,8 @@ import jax.numpy as jnp
 from .so3 import exp as expSO3, hat, vee
 
 class SolverInfo(NamedTuple):
+    """Diagnostics measured after a fixed nonlinear-solver iteration budget."""
+
     residual_norm: jnp.ndarray
     converged: jnp.ndarray
 
@@ -32,7 +34,8 @@ def _residual(g: jnp.ndarray, pi: jnp.ndarray, Jd: jnp.ndarray, h: float) -> jnp
 def solve_F_with_info(pi, J, h, newton_iters=8, tolerance=1e-10):
     """
     Solve for relative rotation F ∈ SO(3) for one VI step.
-    Uses fixed-iteration Newton for determinism/JIT.
+    Runs exactly ``newton_iters`` Newton iterations. ``converged`` is true when
+    the final residual is at most ``tolerance``.
     """
     Jd = discrete_inertia(J)
 
@@ -72,6 +75,7 @@ def simulate_free_rigid_body(
     dt: float,
     steps: int,
     newton_iters: int = 8,
+    tolerance: float = 1e-10,
 ) -> tuple[jnp.ndarray, jnp.ndarray, SolverInfo]:
     """
     Simulate torque-free rigid body on SO(3).
@@ -88,6 +92,7 @@ def simulate_free_rigid_body(
             J,
             dt,
             newton_iters=newton_iters,
+            tolerance=tolerance,
         )
         Rn = R @ F
         pin = F.T @ pi

@@ -55,6 +55,25 @@ def test_conservation_and_valid_rotation():
         assert bool(jnp.all(solver_info.converged)), float(max_residual)
         assert float(max_residual) < 1e-10
 
+
+def test_solver_info_reports_under_iteration():
+    J = jnp.diag(jnp.array([0.6, 1.0, 1.8], dtype=jnp.float64))
+    R0 = jnp.eye(3, dtype=jnp.float64)
+    pi0 = jnp.array([0.2, 0.7, 1.0], dtype=jnp.float64)
+
+    _, _, solver_info = simulate_free_rigid_body(
+        R0,
+        pi0,
+        J,
+        dt=1.0,
+        steps=1,
+        newton_iters=1,
+        tolerance=1e-10,
+    )
+
+    assert not bool(solver_info.converged[0])
+    assert float(solver_info.residual_norm[0]) > 1e-2
+
 def test_attitude_against_high_resolution_rk4_reference():
     """Conservation is supplemented by an independent trajectory check."""
     J = jnp.diag(jnp.array([0.6, 1.0, 1.8], dtype=jnp.float64))
