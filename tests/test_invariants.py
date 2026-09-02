@@ -5,7 +5,8 @@ jax.config.update("jax_enable_x64", True)
 
 from symplie.integrators import simulate_free_rigid_body
 from symplie.invariants import determinant_error, energy, spatial_momentum, ortho_error
-from symplie.so3 import hat, log
+from symplie.so3 import exp as expSO3
+from symplie.so3 import log
 
 def random_diag_inertia(key):
     d = jax.random.uniform(key, (3,), minval=0.3, maxval=2.0)
@@ -80,18 +81,21 @@ def test_attitude_against_high_resolution_rk4_reference():
     initial = (jnp.eye(3, dtype=jnp.float64), jnp.array([0.2, 0.7, 1.0]))
     h = 1e-4
 
-    def derivative(state):
-        R, pi = state
+    def derivative(pi):
         omega = jnp.linalg.solve(J, pi)
-        return R @ hat(omega), jnp.cross(pi, omega)
-
-    def add(state, tangent, scale):
-        return state[0] + scale*tangent[0], state[1] + scale*tangent[1]
+        return jnp.cross(pi, omega)
 
     def rk4_step(_, state):
-        k1 = derivative(state); k2 = derivative(add(state, k1, h/2))
-        k3 = derivative(add(state, k2, h/2)); k4 = derivative(add(state, k3, h))
-        return tuple(x + h*(a+2*b+2*c+d)/6 for x,a,b,c,d in zip(state,k1,k2,k3,k4))
+        R, pi = state
+        k1 = derivative(pi)
+        k2 = derivative(pi + h * k1 / 2)
+        k3 = derivative(pi + h * k2 / 2)
+        k4 = derivative(pi + h * k3)
+        next_pi = pi + h * (k1 + 2*k2 + 2*k3 + k4) / 6
+
+        omega_mid = jnp.linalg.solve(J, (pi + next_pi) / 2)
+        next_R = R @ expSO3(h * omega_mid)
+        return next_R, next_pi
 
     R_reference, pi_reference = jax.lax.fori_loop(0, 5000, rk4_step, initial)
     Rs, pis, solver_info = simulate_free_rigid_body(
@@ -101,6 +105,8 @@ def test_attitude_against_high_resolution_rk4_reference():
         steps=100,
     )
     attitude_error = jnp.linalg.norm(log(R_reference.T @ Rs[-1]))
+    assert float(ortho_error(R_reference)) < 1e-10
+    assert float(determinant_error(R_reference)) < 1e-10
     assert bool(jnp.all(solver_info.converged))
     assert float(attitude_error) < 2e-6
     assert float(jnp.linalg.norm(pi_reference - pis[-1])) < 1e-6
