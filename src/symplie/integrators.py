@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 from functools import partial
+from typing import NamedTuple
 import jax
 import jax.numpy as jnp
 
 from .so3 import exp as expSO3, hat, vee
+
+class SolverInfo(NamedTuple):
+    residual_norm: jnp.ndarray
+    converged: jnp.ndarray
 
 def discrete_inertia(J: jnp.ndarray) -> jnp.ndarray:
     """
@@ -24,7 +29,7 @@ def _residual(g: jnp.ndarray, pi: jnp.ndarray, Jd: jnp.ndarray, h: float) -> jnp
     return vee(M)
 
 @partial(jax.jit, static_argnames=("newton_iters",))
-def solve_F(pi: jnp.ndarray, J: jnp.ndarray, h: float, newton_iters: int = 6) -> jnp.ndarray:
+def solve_F_with_info(pi, J, h, newton_iters=8, tolerance=1e-10):
     """
     Solve for relative rotation F ∈ SO(3) for one VI step.
     Uses fixed-iteration Newton for determinism/JIT.
@@ -44,10 +49,20 @@ def solve_F(pi: jnp.ndarray, J: jnp.ndarray, h: float, newton_iters: int = 6) ->
         Jg = Jg + (1e-12 * jnp.eye(3, dtype=Jg.dtype))
 
         delta = jnp.linalg.solve(Jg, r)
-        return g - delta
+        # Deterministic backtracking: retain the candidate with least residual.
+        scales = jnp.array([0.0, 0.25, 0.5, 1.0], dtype=g.dtype)
+        candidates = g[None, :] - scales[:, None] * delta[None, :]
+        norms = jax.vmap(lambda candidate: jnp.linalg.norm(_residual(candidate, pi, Jd, h)))(candidates)
+        return candidates[jnp.argmin(norms)]
 
     g = jax.lax.fori_loop(0, newton_iters, newton_body, g0)
-    return expSO3(g)
+    residual_norm = jnp.linalg.norm(_residual(g, pi, Jd, h))
+    return expSO3(g), SolverInfo(residual_norm, residual_norm <= tolerance)
+
+@partial(jax.jit, static_argnames=("newton_iters",))
+def solve_F(pi, J, h, newton_iters=8):
+    """Return the relative rotation; use ``solve_F_with_info`` to inspect convergence."""
+    return solve_F_with_info(pi, J, h, newton_iters)[0]
 
 @partial(jax.jit, static_argnames=("steps", "newton_iters"))
 def simulate_free_rigid_body(
@@ -56,7 +71,7 @@ def simulate_free_rigid_body(
     J: jnp.ndarray,
     dt: float,
     steps: int,
-    newton_iters: int = 6,
+    newton_iters: int = 8,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
     """
     Simulate torque-free rigid body on SO(3).
@@ -77,4 +92,3 @@ def simulate_free_rigid_body(
     Rs = jnp.concatenate([R0[None, ...], Rh], axis=0)
     pis = jnp.concatenate([pi0[None, ...], ph], axis=0)
     return Rs, pis
-

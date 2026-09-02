@@ -15,3 +15,6 @@ def ortho_error(R: jnp.ndarray) -> jnp.ndarray:
     I = jnp.eye(3, dtype=R.dtype)
     return jnp.linalg.norm(R.T @ R - I)
 
+def determinant_error(R: jnp.ndarray) -> jnp.ndarray:
+    """Absolute error from the proper-rotation condition det(R) = +1."""
+    return jnp.abs(jnp.linalg.det(R) - 1.0)
