@@ -1,4 +1,6 @@
-artifacts
+artifacts/*
+!artifacts/energy_drift.png
+!artifacts/spatial_momentum_error.png
 *.egg-info/
 __pycache__/
 .pytest_cache/

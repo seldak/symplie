@@ -2,8 +2,12 @@
 
 [![CI](https://github.com/seldak/symplie/actions/workflows/ci.yml/badge.svg)](https://github.com/seldak/symplie/actions/workflows/ci.yml)
 
-SympLie is a compact, test-driven JAX library for Lie-group operations and
-structure-preserving rigid-body integration on SO(3) and SE(3).
+SympLie is a small experimental JAX package for SO(3)/SE(3) operations and one
+structure-preserving rigid-body integrator.
+
+It is not a replacement for jaxlie, Sophus, Drake, or Pinocchio. Use those for
+a broad, mature geometry or robotics stack; use SympLie to study and differentiate
+through its Moser–Veselov free-rigid-body step.
 
 It currently provides:
 
@@ -98,7 +102,7 @@ Rs, pis = simulate_free_rigid_body(
     J,
     dt=1e-2,
     steps=2000,
-    newton_iters=6,
+    newton_iters=8,
 )
 
 L0 = spatial_momentum(Rs[0], pis[0])
@@ -117,17 +121,32 @@ pytest
 python scripts/make_plots.py --out artifacts
 ```
 
-This creates:
+This creates the versioned plots shown below:
 
 ```
 artifacts/energy_drift.png
 artifacts/spatial_momentum_error.png
 ```
 
-## Roadmap
+![Relative energy deviation over 20 seconds](artifacts/energy_drift.png)
 
-- SE(3) variational rigid-body dynamics with linear/angular momentum and
-  external wrenches.
-- IMU-driven propagation with bias and noise models.
-- A C++ reference implementation with pybind11 benchmarks.
-- Constraint support through discrete multipliers.
+![Spatial momentum deviation over 20 seconds](artifacts/spatial_momentum_error.png)
+
+For the documented asymmetric-body case ($dt=0.01$ s, 20 s), the variational
+trajectory's maximum relative energy deviation is $2.4\times10^{-15}$, spatial
+momentum deviation is $4.8\times10^{-15}$, and determinant error is
+$5.4\times10^{-15}$ in float64. The plots include a conventional RK4 baseline
+at the same step size; regenerate them to reproduce the numbers locally.
+
+The nonlinear solve uses deterministic backtracking and exposes its result:
+
+```python
+from symplie import solve_F_with_info
+
+F, info = solve_F_with_info(pi0, J, 1e-2)
+assert info.converged, info.residual_norm
+```
+
+SympLie currently models only torque-free rotational dynamics. It does not
+implement external wrenches, constraints, contact, IMU models, or SE(3)
+dynamics.
