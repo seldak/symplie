@@ -6,6 +6,7 @@ translational component and ``phi`` is the SO(3) rotation vector.
 
 from __future__ import annotations
 
+import jax
 import jax.numpy as jnp
 
 from .so3 import exp as expSO3
@@ -52,15 +53,54 @@ def vee(X: jnp.ndarray) -> jnp.ndarray:
     rho = X[:3, 3]
     return jnp.concatenate((rho, phi))
 
+def _rotation_angle(phi: jnp.ndarray) -> jnp.ndarray:
+    return jnp.linalg.norm(phi)
 
 def left_jacobian_SO3(phi: jnp.ndarray) -> jnp.ndarray:
     """Return the SO(3) left Jacobian used by the SE(3) exponential."""
-    raise NotImplementedError("Implement the SO(3) left Jacobian")
+    theta = _rotation_angle(phi)
+    Phi = hatSO3(phi)
+    Phi2 = Phi @ Phi
+    I = jnp.eye(3, dtype=phi.dtype)
 
+    def small(_):
+        return I + 0.5 * Phi + (1.0 / 6.0) * Phi2
+
+    def general(_):
+        theta2 = theta**2
+        theta3 = theta2 * theta
+        return (
+            I
+            + ((1.0 - jnp.cos(theta)) / theta2) * Phi
+            + ((theta - jnp.sin(theta)) / theta3) * Phi2
+        )
+
+    threshold = jnp.cbrt(jnp.finfo(phi.dtype).eps)
+    return jax.lax.cond(theta < threshold, small, general, operand=None)
 
 def left_jacobian_inverse_SO3(phi: jnp.ndarray) -> jnp.ndarray:
     """Return the inverse SO(3) left Jacobian used by the SE(3) logarithm."""
-    raise NotImplementedError("Implement the inverse SO(3) left Jacobian")
+    theta = _rotation_angle(phi)
+    Phi = hatSO3(phi)
+    Phi2 = Phi @ Phi
+    I = jnp.eye(3, dtype=phi.dtype)
+
+    def small(_):
+        return I - 0.5 * Phi + (1.0 / 12.0) * Phi2
+
+    def general(_):
+        theta2 = theta**2
+        theta3 = theta2 * theta
+        return (
+            I
+            - 0.5 * Phi
+            + (1/theta2 - (1 + jnp.cos(theta)) / (2.0 * theta * jnp.sin(theta)) ) * Phi2
+        )
+
+    threshold = jnp.cbrt(jnp.finfo(phi.dtype).eps)
+    return jax.lax.cond(theta < threshold, small, general, operand=None)
+
+
 
 
 def exp(xi: jnp.ndarray) -> jnp.ndarray:
