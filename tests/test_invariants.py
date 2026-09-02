@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+import pytest
 
 jax.config.update("jax_enable_x64", True)
 
@@ -12,13 +13,19 @@ def random_diag_inertia(key):
     d = jax.random.uniform(key, (3,), minval=0.3, maxval=2.0)
     return jnp.diag(d).astype(jnp.float64)
 
-def test_conservation_and_valid_rotation():
+@pytest.mark.parametrize("rotated", [False, True], ids=["diagonal", "rotated"])
+def test_conservation_and_valid_rotation(rotated):
     key = jax.random.PRNGKey(0)
 
     # keep CI fast + stable: few cases, modest step count, dt small enough for Newton to behave.
     for _ in range(6):
         key, kJ, kpi = jax.random.split(key, 3)
         J = random_diag_inertia(kJ)
+        if rotated:
+            kQ = jax.random.fold_in(kJ, 1)
+            Q = expSO3(jax.random.normal(kQ, (3,), dtype=jnp.float64))
+            J = Q @ J @ Q.T
+            assert float(jnp.linalg.norm(J - jnp.diag(jnp.diag(J)))) > 1e-6
         pi0 = jax.random.normal(kpi, (3,), dtype=jnp.float64)
 
         R0 = jnp.eye(3, dtype=jnp.float64)
