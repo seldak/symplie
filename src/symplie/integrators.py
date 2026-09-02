@@ -72,23 +72,34 @@ def simulate_free_rigid_body(
     dt: float,
     steps: int,
     newton_iters: int = 8,
-) -> tuple[jnp.ndarray, jnp.ndarray]:
+) -> tuple[jnp.ndarray, jnp.ndarray, SolverInfo]:
     """
     Simulate torque-free rigid body on SO(3).
     State is (R, pi) with pi in body coordinates.
     Returns:
       Rs: (steps+1, 3, 3)
       pis: (steps+1, 3)
+      solver_info: per-step residual norms and convergence flags
     """
     def scan_fn(carry, _):
         R, pi = carry
-        F = solve_F(pi, J, dt, newton_iters=newton_iters)
+        F, solver_info = solve_F_with_info(
+            pi,
+            J,
+            dt,
+            newton_iters=newton_iters,
+        )
         Rn = R @ F
         pin = F.T @ pi
-        return (Rn, pin), (Rn, pin)
+        return (Rn, pin), (Rn, pin, solver_info)
 
-    (Rf, pif), (Rh, ph) = jax.lax.scan(scan_fn, (R0, pi0), xs=None, length=steps)
+    (Rf, pif), (Rh, ph, solver_info) = jax.lax.scan(
+        scan_fn,
+        (R0, pi0),
+        xs=None,
+        length=steps,
+    )
 
     Rs = jnp.concatenate([R0[None, ...], Rh], axis=0)
     pis = jnp.concatenate([pi0[None, ...], ph], axis=0)
-    return Rs, pis
+    return Rs, pis, solver_info

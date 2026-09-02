@@ -3,7 +3,7 @@ import jax.numpy as jnp
 
 jax.config.update("jax_enable_x64", True)
 
-from symplie.integrators import simulate_free_rigid_body, solve_F_with_info
+from symplie.integrators import simulate_free_rigid_body
 from symplie.invariants import determinant_error, energy, spatial_momentum, ortho_error
 from symplie.so3 import hat, log
 
@@ -24,7 +24,13 @@ def test_conservation_and_valid_rotation():
         dt = 1e-2
         steps = 400
 
-        Rs, pis = simulate_free_rigid_body(R0, pi0, J, dt, steps=steps, newton_iters=6)
+        Rs, pis, solver_info = simulate_free_rigid_body(
+            R0,
+            pi0,
+            J,
+            dt,
+            steps=steps,
+        )
 
         # Spatial momentum should be constant (up to numeric)
         Ls = jax.vmap(spatial_momentum)(Rs, pis)
@@ -40,14 +46,14 @@ def test_conservation_and_valid_rotation():
         ortho = jax.vmap(ortho_error)(Rs)
         max_ortho = jnp.max(ortho)
         max_det = jnp.max(jax.vmap(determinant_error)(Rs))
-        _, info = solve_F_with_info(pi0, J, dt, newton_iters=8)
+        max_residual = jnp.max(solver_info.residual_norm)
 
         assert float(max_L_dev) < 1e-8
         assert float(rel_E_dev) < 1e-5
         assert float(max_ortho) < 1e-10
         assert float(max_det) < 1e-10
-        assert bool(info.converged), float(info.residual_norm)
-        assert float(info.residual_norm) < 1e-10
+        assert bool(jnp.all(solver_info.converged)), float(max_residual)
+        assert float(max_residual) < 1e-10
 
 def test_attitude_against_high_resolution_rk4_reference():
     """Conservation is supplemented by an independent trajectory check."""
@@ -69,7 +75,13 @@ def test_attitude_against_high_resolution_rk4_reference():
         return tuple(x + h*(a+2*b+2*c+d)/6 for x,a,b,c,d in zip(state,k1,k2,k3,k4))
 
     R_reference, pi_reference = jax.lax.fori_loop(0, 5000, rk4_step, initial)
-    Rs, pis = simulate_free_rigid_body(*initial, J, 0.005, steps=100, newton_iters=8)
+    Rs, pis, solver_info = simulate_free_rigid_body(
+        *initial,
+        J,
+        0.005,
+        steps=100,
+    )
     attitude_error = jnp.linalg.norm(log(R_reference.T @ Rs[-1]))
+    assert bool(jnp.all(solver_info.converged))
     assert float(attitude_error) < 2e-6
     assert float(jnp.linalg.norm(pi_reference - pis[-1])) < 1e-6

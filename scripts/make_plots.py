@@ -45,7 +45,18 @@ def main():
     dt = 1e-2
     steps = 2000
 
-    Rs, pis = simulate_free_rigid_body(R0, pi0, J, dt, steps=steps, newton_iters=6)
+    Rs, pis, solver_info = simulate_free_rigid_body(
+        R0,
+        pi0,
+        J,
+        dt,
+        steps=steps,
+    )
+    if not bool(jnp.all(solver_info.converged)):
+        max_residual = float(jnp.max(solver_info.residual_norm))
+        raise RuntimeError(
+            f"Variational solve failed to converge; maximum residual: {max_residual}"
+        )
 
     Es = jax.vmap(lambda p: energy(p, J))(pis)
     E0 = Es[0]

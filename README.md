@@ -96,7 +96,7 @@ J = jnp.diag(jnp.array([0.6, 1.0, 1.8]))
 R0 = jnp.eye(3)
 pi0 = jnp.array([0.2, 0.7, 1.0])
 
-Rs, pis = simulate_free_rigid_body(
+Rs, pis, solver_info = simulate_free_rigid_body(
     R0,
     pi0,
     J,
@@ -104,6 +104,8 @@ Rs, pis = simulate_free_rigid_body(
     steps=2000,
     newton_iters=8,
 )
+
+assert solver_info.converged.all(), solver_info.residual_norm.max()
 
 L0 = spatial_momentum(Rs[0], pis[0])
 E0 = energy(pis[0], J)
