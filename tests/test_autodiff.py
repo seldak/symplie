@@ -4,7 +4,7 @@ import pytest
 
 jax.config.update("jax_enable_x64", True)
 
-from symplie import se3, so3
+from symplie import se3, simulate_free_rigid_body, so3
 
 
 def linear_log_SO3(R):
@@ -53,3 +53,31 @@ def test_vmapped_roundtrip_jacobian(group, dimension, differentiate, dtype):
 
     assert jnp.all(jnp.isfinite(jacobian))
     assert jnp.allclose(jacobian.reshape(expected.shape), expected, atol=2e-6, rtol=2e-6)
+
+
+def test_integrator_gradient_wrt_initial_momentum():
+    R0 = jnp.eye(3, dtype=jnp.float64)
+    pi0 = jnp.array([0.2, 0.7, 1.0], dtype=jnp.float64)
+    J = jnp.diag(jnp.array([0.8, 1.0, 1.2], dtype=jnp.float64))
+
+    def loss(initial_momentum):
+        _, pis, solver_info = simulate_free_rigid_body(
+            R0, initial_momentum, J, dt=0.01, steps=50
+        )
+        # Use one body component; the full momentum norm is conserved.
+        return 0.5 * (pis[-1, 0] - 0.4)**2, solver_info
+
+    gradient, solver_info = jax.grad(loss, has_aux=True)(pi0)
+    assert jnp.all(solver_info.converged)
+    assert jnp.all(jnp.isfinite(gradient))
+    assert float(jnp.linalg.norm(gradient)) > 1e-3
+
+    epsilon = 1e-5
+    finite_difference = []
+    for direction in jnp.eye(3, dtype=pi0.dtype):
+        plus, plus_info = loss(pi0 + epsilon * direction)
+        minus, minus_info = loss(pi0 - epsilon * direction)
+        assert jnp.all(plus_info.converged) and jnp.all(minus_info.converged)
+        finite_difference.append((plus - minus) / (2 * epsilon))
+
+    assert jnp.allclose(gradient, jnp.array(finite_difference), atol=1e-8, rtol=1e-5)
