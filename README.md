@@ -114,6 +114,7 @@ E0 = energy(pis[0], J)
 ## Run tests
 
 ```bash
+pip install -e ".[dev]"
 pytest
 ```
 
