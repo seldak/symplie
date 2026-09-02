@@ -120,25 +120,32 @@ pytest
 ## Generate plots
 
 ```bash
+python scripts/attitude_accuracy.py --out artifacts
 python scripts/make_plots.py --out artifacts
 ```
 
-This creates the versioned plots shown below:
+This creates:
 
 ```
-artifacts/energy_drift.png
+artifacts/attitude_error_vs_dt.png
+artifacts/attitude_error_vs_dt.csv
+artifacts/attitude_accuracy.json
 artifacts/spatial_momentum_error.png
+artifacts/energy_drift.png
 ```
 
-![Relative energy deviation over 20 seconds](artifacts/energy_drift.png)
+![Final attitude error versus timestep](artifacts/attitude_error_vs_dt.png)
+
+Final attitude error after 20 seconds, measured against a SciPy DOP853
+reference. Halving the timestep reduces the error by approximately a factor
+of four, consistent with second-order convergence.
 
 ![Spatial momentum deviation over 20 seconds](artifacts/spatial_momentum_error.png)
 
-For the documented asymmetric-body case ($dt=0.01$ s, 20 s), the variational
-trajectory's maximum relative energy deviation is $2.4\times10^{-15}$, spatial
-momentum deviation is $4.8\times10^{-15}$, and determinant error is
-$5.4\times10^{-15}$ in float64. The plots include a conventional RK4 baseline
-at the same step size; regenerate them to reproduce the numbers locally.
+Spatial angular momentum over 20 seconds at $dt=0.01$ s. The baseline uses
+RK4 for body momentum and exponential attitude updates.
+
+[Relative energy deviation](artifacts/energy_drift.png) is available separately.
 
 The nonlinear solve uses deterministic backtracking and exposes its result:
 
