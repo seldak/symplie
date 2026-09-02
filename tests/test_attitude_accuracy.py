@@ -10,6 +10,7 @@ from scipy.spatial.transform import Rotation
 jax.config.update("jax_enable_x64", True)
 
 from symplie.integrators import simulate_free_rigid_body
+from symplie.invariants import determinant_error, ortho_error
 
 
 # Load the benchmark script without adding it to the installed package.
@@ -17,6 +18,21 @@ script = Path(__file__).resolve().parents[1] / "scripts" / "attitude_accuracy.py
 spec = importlib.util.spec_from_file_location("attitude_accuracy", script)
 benchmark = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(benchmark)
+
+
+def test_trajectory_against_scipy_reference():
+    J = jnp.diag(jnp.array([0.6, 1.0, 1.8], dtype=jnp.float64))
+    R0 = jnp.eye(3, dtype=jnp.float64)
+    pi0 = jnp.array([0.2, 0.7, 1.0], dtype=jnp.float64)
+
+    R_reference, pi_reference, _ = benchmark.reference_attitude(R0, pi0, J, duration=0.5)
+    Rs, pis, solver_info = simulate_free_rigid_body(R0, pi0, J, dt=0.005, steps=100)
+
+    assert float(ortho_error(R_reference)) < 1e-10
+    assert float(determinant_error(R_reference)) < 1e-10
+    assert bool(jnp.all(solver_info.converged))
+    assert benchmark.attitude_error(Rs[-1], R_reference) < 2e-6
+    assert float(jnp.linalg.norm(pi_reference - pis[-1])) < 1e-6
 
 
 def test_reference_and_vi_against_exact_symmetric_top():

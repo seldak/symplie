@@ -7,7 +7,6 @@ jax.config.update("jax_enable_x64", True)
 from symplie.integrators import simulate_free_rigid_body
 from symplie.invariants import determinant_error, energy, spatial_momentum, ortho_error
 from symplie.so3 import exp as expSO3
-from symplie.so3 import log
 
 def random_diag_inertia(key):
     d = jax.random.uniform(key, (3,), minval=0.3, maxval=2.0)
@@ -81,39 +80,3 @@ def test_solver_info_reports_under_iteration():
 
     assert not bool(solver_info.converged[0])
     assert float(solver_info.residual_norm[0]) > 1e-2
-
-def test_attitude_against_high_resolution_rk4_reference():
-    """Conservation is supplemented by an independent trajectory check."""
-    J = jnp.diag(jnp.array([0.6, 1.0, 1.8], dtype=jnp.float64))
-    initial = (jnp.eye(3, dtype=jnp.float64), jnp.array([0.2, 0.7, 1.0]))
-    h = 1e-4
-
-    def derivative(pi):
-        omega = jnp.linalg.solve(J, pi)
-        return jnp.cross(pi, omega)
-
-    def rk4_step(_, state):
-        R, pi = state
-        k1 = derivative(pi)
-        k2 = derivative(pi + h * k1 / 2)
-        k3 = derivative(pi + h * k2 / 2)
-        k4 = derivative(pi + h * k3)
-        next_pi = pi + h * (k1 + 2*k2 + 2*k3 + k4) / 6
-
-        omega_mid = jnp.linalg.solve(J, (pi + next_pi) / 2)
-        next_R = R @ expSO3(h * omega_mid)
-        return next_R, next_pi
-
-    R_reference, pi_reference = jax.lax.fori_loop(0, 5000, rk4_step, initial)
-    Rs, pis, solver_info = simulate_free_rigid_body(
-        *initial,
-        J,
-        0.005,
-        steps=100,
-    )
-    attitude_error = jnp.linalg.norm(log(R_reference.T @ Rs[-1]))
-    assert float(ortho_error(R_reference)) < 1e-10
-    assert float(determinant_error(R_reference)) < 1e-10
-    assert bool(jnp.all(solver_info.converged))
-    assert float(attitude_error) < 2e-6
-    assert float(jnp.linalg.norm(pi_reference - pis[-1])) < 1e-6
