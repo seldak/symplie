@@ -1,6 +1,9 @@
 artifacts/*
 !artifacts/energy_drift.png
 !artifacts/spatial_momentum_error.png
+!artifacts/attitude_error_vs_dt.png
+!artifacts/attitude_error_vs_dt.csv
+!artifacts/attitude_accuracy.json
 *.egg-info/
 __pycache__/
 .pytest_cache/

@@ -1,0 +1,47 @@
+{
+  "duration_s": 20.0,
+  "inertia_diagonal": [
+    0.6,
+    1.0,
+    1.8
+  ],
+  "initial_body_momentum": [
+    0.2,
+    0.7,
+    1.0
+  ],
+  "initial_rotation": [
+    [
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      1.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "reference_method": "SciPy DOP853 (quaternion + body momentum)",
+  "reference_tolerances": {
+    "rtol": 1e-13,
+    "atol": 1e-15
+  },
+  "reference_check_tolerances": {
+    "rtol": 1e-11,
+    "atol": 1e-13
+  },
+  "reference_tolerance_difference_rad": 1.8939947022502482e-11,
+  "reference_quaternion_norm_error": 9.43689570931383e-15,
+  "reference_check_quaternion_norm_error": 1.0811351813799774e-12,
+  "reference_orthogonality_error": 5.216319021193127e-16,
+  "reference_determinant_error": 6.661338147750939e-16,
+  "dtype": "float64",
+  "newton_iters": 8,
+  "newton_tolerance": 1e-10
+}
