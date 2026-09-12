@@ -74,6 +74,34 @@ def test_hat_and_vee_are_jittable():
     assert jnp.allclose(recovered, xi, atol=0.0, rtol=0.0)
 
 
+def test_hat_and_vee_accept_leading_batch_dimensions():
+    twists = jnp.arange(36, dtype=jnp.float64).reshape((2, 3, 6)) / 10
+
+    matrices = jax.jit(hat)(twists)
+    recovered = jax.jit(vee)(matrices)
+    expected = jax.vmap(hat)(twists.reshape((-1, 6)))
+
+    assert matrices.shape == (2, 3, 4, 4)
+    assert recovered.shape == (2, 3, 6)
+    assert matrices.dtype == twists.dtype
+    assert jnp.array_equal(matrices.reshape((-1, 4, 4)), expected)
+    assert jnp.array_equal(recovered, twists)
+
+
+@pytest.mark.parametrize(
+    "function, argument",
+    [
+        (hat, jnp.zeros(5)),
+        (hat, jnp.zeros((2, 5))),
+        (vee, jnp.zeros((4, 3))),
+        (vee, jnp.zeros((2, 4, 3))),
+    ],
+)
+def test_hat_and_vee_reject_wrong_trailing_shapes(function, argument):
+    with pytest.raises(ValueError, match="trailing shape"):
+        function(argument)
+
+
 @pytest.mark.parametrize(
     "phi",
     [

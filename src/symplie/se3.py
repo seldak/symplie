@@ -26,7 +26,7 @@ __all__ = [
 
 def _split_twist(xi: jnp.ndarray) -> tuple[jnp.ndarray, jnp.ndarray]:
     """Split ``[rho, phi]`` into its translational and rotational parts."""
-    return xi[:3], xi[3:]
+    return xi[..., :3], xi[..., 3:]
 
 
 def _assemble_transform(R: jnp.ndarray, p: jnp.ndarray) -> jnp.ndarray:
@@ -38,20 +38,26 @@ def _assemble_transform(R: jnp.ndarray, p: jnp.ndarray) -> jnp.ndarray:
 
 
 def hat(xi: jnp.ndarray) -> jnp.ndarray:
-    """Map a twist with shape ``(6,)`` to an se(3) matrix."""
+    """Map twists with shape ``(..., 6)`` to se(3) matrices."""
+    if xi.shape[-1:] != (6,):
+        raise ValueError("hat expects an array with trailing shape (6,)")
+
     rho, phi = _split_twist(xi)
 
     phi_hat = hatSO3(phi)
-    upper = jnp.concatenate((phi_hat, rho[:, None]), axis=1)
-    lower = jnp.zeros((1, 4), dtype=phi_hat.dtype)
-    return jnp.concatenate((upper, lower), axis=0)
+    upper = jnp.concatenate((phi_hat, rho[..., :, None]), axis=-1)
+    lower = jnp.zeros(xi.shape[:-1] + (1, 4), dtype=phi_hat.dtype)
+    return jnp.concatenate((upper, lower), axis=-2)
 
 
 def vee(X: jnp.ndarray) -> jnp.ndarray:
-    """Map an se(3) matrix with shape ``(4, 4)`` to ``[rho, phi]``."""
-    phi = veeSO3(X[:3, :3])
-    rho = X[:3, 3]
-    return jnp.concatenate((rho, phi))
+    """Map se(3) matrices with shape ``(..., 4, 4)`` to ``[rho, phi]``."""
+    if X.shape[-2:] != (4, 4):
+        raise ValueError("vee expects an array with trailing shape (4, 4)")
+
+    phi = veeSO3(X[..., :3, :3])
+    rho = X[..., :3, 3]
+    return jnp.concatenate((rho, phi), axis=-1)
 
 
 def _rotation_angle(phi: jnp.ndarray) -> jnp.ndarray:
