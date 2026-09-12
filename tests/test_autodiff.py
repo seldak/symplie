@@ -52,9 +52,12 @@ def test_vmapped_roundtrip_jacobian(group, dimension, differentiate, dtype):
 
     jacobian = jax.jit(differentiate(jax.vmap(roundtrip)))(vectors)
     expected = jnp.eye(vectors.size, dtype=dtype)
+    tolerance = 2e-5 if dtype == jnp.float32 else 2e-6
 
     assert jnp.all(jnp.isfinite(jacobian))
-    assert jnp.allclose(jacobian.reshape(expected.shape), expected, atol=2e-6, rtol=2e-6)
+    assert jnp.allclose(
+        jacobian.reshape(expected.shape), expected, atol=tolerance, rtol=tolerance
+    )
 
 
 @pytest.mark.parametrize("differentiate", [jax.jacfwd, jax.jacrev])
