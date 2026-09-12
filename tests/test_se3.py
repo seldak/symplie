@@ -156,3 +156,39 @@ def test_exp_and_log_are_jittable():
     recovered = jax.jit(logSE3)(T)
 
     assert jnp.allclose(recovered, xi, atol=1e-10, rtol=1e-10)
+
+
+def test_exp_and_log_accept_leading_batch_dimensions():
+    near_pi = (jnp.pi - 5e-5) * _NEAR_PI_AXIS
+    twists = jnp.stack((
+        jnp.zeros(6),
+        jnp.array([1.0, -2.0, 0.5, 0.0, 0.0, 0.0]),
+        jnp.array([0.4, -0.7, 1.2, 1e-12, -2e-12, 3e-12]),
+        jnp.array([1.0, -2.0, 0.5, 0.1, -0.2, 0.3]),
+        jnp.concatenate((jnp.array([0.4, -0.7, 1.2]), near_pi)),
+        jnp.array([-0.3, 0.8, 0.1, -0.4, 0.2, 0.7]),
+    )).reshape((2, 3, 6))
+
+    transforms = jax.jit(expSE3)(twists)
+    recovered = jax.jit(logSE3)(transforms)
+    expected_transforms = jnp.stack([expSE3(xi) for xi in twists.reshape((-1, 6))])
+    expected_twists = jnp.stack([logSE3(T) for T in expected_transforms])
+
+    assert transforms.shape == (2, 3, 4, 4)
+    assert recovered.shape == (2, 3, 6)
+    assert jnp.allclose(transforms.reshape((-1, 4, 4)), expected_transforms)
+    assert jnp.allclose(recovered.reshape((-1, 6)), expected_twists)
+
+
+@pytest.mark.parametrize(
+    "function, argument",
+    [
+        (expSE3, jnp.zeros(5)),
+        (expSE3, jnp.zeros((2, 5))),
+        (logSE3, jnp.zeros((4, 3))),
+        (logSE3, jnp.zeros((2, 4, 3))),
+    ],
+)
+def test_exp_and_log_reject_wrong_trailing_shapes(function, argument):
+    with pytest.raises(ValueError, match="trailing shape"):
+        function(argument)

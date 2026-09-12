@@ -61,7 +61,9 @@ For rotation vectors on the principal branch, the test suite checks
 ### SE(3) exponential and logarithm maps
 
 SE(3) twists use the convention $\xi=[\rho,\phi]$, with translation first and
-the SO(3) rotation vector second. Run the JIT-compiled round-trip example with:
+the SO(3) rotation vector second. `expSE3` accepts arrays with shape `(..., 6)`,
+and `logSE3` accepts arrays with shape `(..., 4, 4)`. Run the JIT-compiled
+round-trip example with:
 
 ```bash
 python examples/se3_exp_log.py

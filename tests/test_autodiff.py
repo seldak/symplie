@@ -78,6 +78,27 @@ def test_batched_so3_roundtrip_jacobian(differentiate):
     assert jnp.allclose(jacobian.reshape(expected.shape), expected, atol=1e-4, rtol=1e-4)
 
 
+@pytest.mark.parametrize("differentiate", [jax.jacfwd, jax.jacrev])
+def test_batched_se3_roundtrip_jacobian(differentiate):
+    axis = jnp.array([1.0, -2.0, 0.5], dtype=jnp.float64)
+    axis /= jnp.linalg.norm(axis)
+    twists = jnp.stack((
+        jnp.zeros(6),
+        jnp.array([0.4, -0.7, 1.2, 1e-12, -2e-12, 3e-12]),
+        jnp.array([1.0, -2.0, 0.5, 0.1, -0.2, 0.3]),
+        jnp.concatenate((jnp.array([0.4, -0.7, 1.2]), (jnp.pi - 5e-5) * axis)),
+    ))
+
+    def roundtrip(batch):
+        return se3.log(se3.exp(batch))
+
+    jacobian = jax.jit(differentiate(roundtrip))(twists)
+    expected = jnp.eye(twists.size, dtype=twists.dtype)
+
+    assert jnp.all(jnp.isfinite(jacobian))
+    assert jnp.allclose(jacobian.reshape(expected.shape), expected, atol=1e-4, rtol=1e-4)
+
+
 def test_integrator_gradient_wrt_initial_momentum():
     R0 = jnp.eye(3, dtype=jnp.float64)
     pi0 = jnp.array([0.2, 0.7, 1.0], dtype=jnp.float64)

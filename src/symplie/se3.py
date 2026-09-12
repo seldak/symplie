@@ -105,7 +105,7 @@ def left_jacobian_inverse_SO3(phi: jnp.ndarray) -> jnp.ndarray:
     return jax.lax.cond(theta < threshold, small, general, operand=None)
 
 
-def exp(xi: jnp.ndarray) -> jnp.ndarray:
+def _exp_single(xi: jnp.ndarray) -> jnp.ndarray:
     """Map a twist with shape ``(6,)`` to an SE(3) transformation."""
     rho, phi = _split_twist(xi)
     R = expSO3(phi)
@@ -113,10 +113,34 @@ def exp(xi: jnp.ndarray) -> jnp.ndarray:
     return _assemble_transform(R, p)
 
 
-def log(T: jnp.ndarray) -> jnp.ndarray:
+def exp(xi: jnp.ndarray) -> jnp.ndarray:
+    """SE(3) exponential map: (..., 6) -> (..., 4, 4)."""
+    if xi.shape[-1:] != (6,):
+        raise ValueError("exp expects an array with trailing shape (6,)")
+    if xi.ndim == 1:
+        return _exp_single(xi)
+
+    batch_shape = xi.shape[:-1]
+    transforms = jax.vmap(_exp_single)(xi.reshape((-1, 6)))
+    return transforms.reshape(batch_shape + (4, 4))
+
+
+def _log_single(T: jnp.ndarray) -> jnp.ndarray:
     """Map an SE(3) transformation to its principal twist ``[rho, phi]``."""
     R = T[:3, :3]
     p = T[:3, 3]
     phi = logSO3(R)
     rho = left_jacobian_inverse_SO3(phi) @ p
     return jnp.concatenate((rho, phi))
+
+
+def log(T: jnp.ndarray) -> jnp.ndarray:
+    """Principal SE(3) logarithm map: (..., 4, 4) -> (..., 6)."""
+    if T.shape[-2:] != (4, 4):
+        raise ValueError("log expects an array with trailing shape (4, 4)")
+    if T.ndim == 2:
+        return _log_single(T)
+
+    batch_shape = T.shape[:-2]
+    twists = jax.vmap(_log_single)(T.reshape((-1, 4, 4)))
+    return twists.reshape(batch_shape + (6,))
