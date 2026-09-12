@@ -7,6 +7,7 @@ from .integrators import (
     solve_F_with_info,
 )
 from .invariants import determinant_error, energy, ortho_error, spatial_momentum
+from .kinematics import propagate_gyro
 from .se3 import exp as expSE3
 from .se3 import hat as hatSE3
 from .se3 import left_jacobian_inverse_SO3, left_jacobian_SO3
@@ -34,6 +35,7 @@ __all__ = [
     "logSO3",
     "logSO3_checked",
     "ortho_error",
+    "propagate_gyro",
     "simulate_free_rigid_body",
     "solve_F",
     "solve_F_with_info",
