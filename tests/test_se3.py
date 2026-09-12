@@ -120,6 +120,41 @@ def test_left_jacobian_inverse(phi):
     assert jnp.allclose(J @ J_inverse, jnp.eye(3), atol=1e-10, rtol=1e-10)
 
 
+def test_left_jacobians_accept_leading_batch_dimensions():
+    vectors = jnp.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1e-12, -2e-12, 3e-12],
+            [0.1, -0.2, 0.3],
+            [2.0, -1.0, 0.5],
+        ],
+        dtype=jnp.float64,
+    ).reshape((2, 2, 3))
+
+    jacobians = jax.jit(left_jacobian_SO3)(vectors)
+    inverses = jax.jit(left_jacobian_inverse_SO3)(vectors)
+    expected = jax.vmap(left_jacobian_SO3)(vectors.reshape((-1, 3)))
+
+    assert jacobians.shape == (2, 2, 3, 3)
+    assert inverses.shape == (2, 2, 3, 3)
+    assert jnp.allclose(jacobians.reshape((-1, 3, 3)), expected)
+    assert jnp.allclose(jacobians @ inverses, jnp.eye(3), atol=1e-10, rtol=1e-10)
+
+
+@pytest.mark.parametrize(
+    "function, argument",
+    [
+        (left_jacobian_SO3, jnp.zeros(4)),
+        (left_jacobian_SO3, jnp.zeros((2, 4))),
+        (left_jacobian_inverse_SO3, jnp.zeros(4)),
+        (left_jacobian_inverse_SO3, jnp.zeros((2, 4))),
+    ],
+)
+def test_left_jacobians_reject_wrong_trailing_shapes(function, argument):
+    with pytest.raises(ValueError, match="trailing shape"):
+        function(argument)
+
+
 def test_exp_zero_is_identity():
     T = expSE3(jnp.zeros(6, dtype=jnp.float64))
 

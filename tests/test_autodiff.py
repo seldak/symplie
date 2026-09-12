@@ -117,6 +117,28 @@ def test_batched_se3_hat_vee_jacobian(dtype, differentiate):
     assert jnp.array_equal(jacobian.reshape(expected.shape), expected)
 
 
+@pytest.mark.parametrize(
+    "function",
+    [se3.left_jacobian_SO3, se3.left_jacobian_inverse_SO3],
+)
+@pytest.mark.parametrize("differentiate", [jax.jacfwd, jax.jacrev])
+def test_batched_left_jacobian_derivatives(function, differentiate):
+    vectors = jnp.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1e-12, -2e-12, 3e-12],
+            [0.1, -0.2, 0.3],
+        ],
+        dtype=jnp.float64,
+    )
+
+    direct = jax.jit(differentiate(function))(vectors)
+    vmapped = jax.jit(differentiate(jax.vmap(function)))(vectors)
+
+    assert jnp.all(jnp.isfinite(direct))
+    assert jnp.allclose(direct, vmapped, atol=1e-12, rtol=1e-12)
+
+
 def test_integrator_gradient_wrt_initial_momentum():
     R0 = jnp.eye(3, dtype=jnp.float64)
     pi0 = jnp.array([0.2, 0.7, 1.0], dtype=jnp.float64)

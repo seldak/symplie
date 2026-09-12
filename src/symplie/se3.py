@@ -67,7 +67,7 @@ def _rotation_angle(phi: jnp.ndarray) -> jnp.ndarray:
     return jnp.sqrt(jnp.maximum(jnp.dot(phi, phi), minimum_angle**2))
 
 
-def left_jacobian_SO3(phi: jnp.ndarray) -> jnp.ndarray:
+def _left_jacobian_SO3_single(phi: jnp.ndarray) -> jnp.ndarray:
     """Return the SO(3) left Jacobian used by the SE(3) exponential."""
     theta = _rotation_angle(phi)
     Phi = hatSO3(phi)
@@ -90,7 +90,19 @@ def left_jacobian_SO3(phi: jnp.ndarray) -> jnp.ndarray:
     return jax.lax.cond(theta < threshold, small, general, operand=None)
 
 
-def left_jacobian_inverse_SO3(phi: jnp.ndarray) -> jnp.ndarray:
+def left_jacobian_SO3(phi: jnp.ndarray) -> jnp.ndarray:
+    """SO(3) left Jacobian: (..., 3) -> (..., 3, 3)."""
+    if phi.shape[-1:] != (3,):
+        raise ValueError("left_jacobian_SO3 expects trailing shape (3,)")
+    if phi.ndim == 1:
+        return _left_jacobian_SO3_single(phi)
+
+    batch_shape = phi.shape[:-1]
+    jacobians = jax.vmap(_left_jacobian_SO3_single)(phi.reshape((-1, 3)))
+    return jacobians.reshape(batch_shape + (3, 3))
+
+
+def _left_jacobian_inverse_SO3_single(phi: jnp.ndarray) -> jnp.ndarray:
     """Return the inverse SO(3) left Jacobian used by the SE(3) logarithm."""
     theta = _rotation_angle(phi)
     Phi = hatSO3(phi)
@@ -109,6 +121,18 @@ def left_jacobian_inverse_SO3(phi: jnp.ndarray) -> jnp.ndarray:
 
     threshold = jnp.cbrt(jnp.finfo(phi.dtype).eps)
     return jax.lax.cond(theta < threshold, small, general, operand=None)
+
+
+def left_jacobian_inverse_SO3(phi: jnp.ndarray) -> jnp.ndarray:
+    """Inverse SO(3) left Jacobian: (..., 3) -> (..., 3, 3)."""
+    if phi.shape[-1:] != (3,):
+        raise ValueError("left_jacobian_inverse_SO3 expects trailing shape (3,)")
+    if phi.ndim == 1:
+        return _left_jacobian_inverse_SO3_single(phi)
+
+    batch_shape = phi.shape[:-1]
+    jacobians = jax.vmap(_left_jacobian_inverse_SO3_single)(phi.reshape((-1, 3)))
+    return jacobians.reshape(batch_shape + (3, 3))
 
 
 def _exp_single(xi: jnp.ndarray) -> jnp.ndarray:

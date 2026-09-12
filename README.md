@@ -63,7 +63,9 @@ For rotation vectors on the principal branch, the test suite checks
 SE(3) twists use the convention $\xi=[\rho,\phi]$, with translation first and
 the SO(3) rotation vector second. `expSE3` accepts arrays with shape `(..., 6)`,
 and `logSE3` accepts arrays with shape `(..., 4, 4)`. `hatSE3` and `veeSE3`
-use the same leading batch dimensions for twists and algebra matrices:
+use the same leading batch dimensions for twists and algebra matrices.
+
+The SO(3) left Jacobian helpers accept rotation vectors with shape `(..., 3)`:
 
 ```python
 import jax
