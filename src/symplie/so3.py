@@ -3,8 +3,6 @@ from __future__ import annotations
 import jax
 import jax.numpy as jnp
 
-from .invariants import determinant_error, ortho_error
-
 def hat(w: jnp.ndarray) -> jnp.ndarray:
     """so(3) hat operator: (..., 3) -> (..., 3, 3)."""
     wx, wy, wz = jnp.moveaxis(w, -1, 0)
@@ -26,7 +24,7 @@ def vee(W: jnp.ndarray) -> jnp.ndarray:
         axis=-1,
     )
 
-def exp(w: jnp.ndarray) -> jnp.ndarray:
+def _exp_single(w: jnp.ndarray) -> jnp.ndarray:
     """SO(3) exponential map using Rodrigues, stable for small angles."""
     theta_squared = jnp.dot(w, w)
     K = hat(w)
@@ -50,7 +48,18 @@ def exp(w: jnp.ndarray) -> jnp.ndarray:
 
     return jax.lax.cond(theta_squared < 1e-14, small, general, operand=None)
 
-def log(R: jnp.ndarray) -> jnp.ndarray:
+def exp(w: jnp.ndarray) -> jnp.ndarray:
+    """SO(3) exponential map: (..., 3) -> (..., 3, 3)."""
+    if w.shape[-1:] != (3,):
+        raise ValueError("exp expects an array with trailing shape (3,)")
+    if w.ndim == 1:
+        return _exp_single(w)
+
+    batch_shape = w.shape[:-1]
+    rotations = jax.vmap(_exp_single)(w.reshape((-1, 3)))
+    return rotations.reshape(batch_shape + (3, 3))
+
+def _log_single(R: jnp.ndarray) -> jnp.ndarray:
     """Principal rotation vector. Undefined if R is not a proper rotation."""
     # For R in SO(3), trace(R) = 1 + 2*cos(theta). Roundoff can push
     # the inferred cosine just outside arccos's valid interval.
@@ -123,9 +132,27 @@ def log(R: jnp.ndarray) -> jnp.ndarray:
         operand=None,
     )
 
+def log(R: jnp.ndarray) -> jnp.ndarray:
+    """Principal logarithm map: (..., 3, 3) -> (..., 3)."""
+    if R.shape[-2:] != (3, 3):
+        raise ValueError("log expects an array with trailing shape (3, 3)")
+    if R.ndim == 2:
+        return _log_single(R)
+
+    batch_shape = R.shape[:-2]
+    vectors = jax.vmap(_log_single)(R.reshape((-1, 3, 3)))
+    return vectors.reshape(batch_shape + (3,))
+
 def is_proper_rotation(R: jnp.ndarray, atol: float = 1e-6) -> jnp.ndarray:
-    """Check orthogonality and det(R) = +1 for a (3, 3) matrix. JIT-compatible."""
-    return (ortho_error(R) < atol) & (determinant_error(R) < atol)
+    """Check orthogonality and det(R) = +1 for (..., 3, 3) matrices."""
+    if R.shape[-2:] != (3, 3):
+        raise ValueError("is_proper_rotation expects trailing shape (3, 3)")
+
+    identity = jnp.eye(3, dtype=R.dtype)
+    transpose = jnp.swapaxes(R, -1, -2)
+    ortho_error = jnp.linalg.norm(transpose @ R - identity, axis=(-2, -1))
+    determinant_error = jnp.abs(jnp.linalg.det(R) - 1.0)
+    return (ortho_error < atol) & (determinant_error < atol)
 
 def log_checked(R: jnp.ndarray, atol: float = 1e-6) -> jnp.ndarray:
     """Principal log with SO(3) validation. Raises ValueError; not for JIT."""

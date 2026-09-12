@@ -48,16 +48,16 @@ def test_log_checked_rejects_reflections():
             logSO3_checked(R)
 
 
-def test_rotation_check_is_jittable_and_vmappable():
+def test_rotation_check_accepts_batches_under_jit():
     rotations = jnp.stack((
         jnp.eye(3),
         jnp.diag(jnp.array([1.0, 1.0, -1.0])),
         jnp.diag(jnp.array([2.0, 0.5, 1.0])),  # det = 1, but not orthogonal.
     ))
-    valid = jax.jit(jax.vmap(is_proper_rotation))(rotations)
+    valid = jax.jit(is_proper_rotation)(rotations)
     assert jnp.array_equal(valid, jnp.array([True, False, False]))
     with pytest.raises(ValueError, match="expects a proper rotation"):
-        logSO3_checked(rotations[-1])
+        logSO3_checked(rotations)
 
 
 def test_log_checked_respects_tolerance():
@@ -132,6 +132,45 @@ def test_log_is_jittable():
     compiled = jax.jit(logSO3)(R)
 
     assert jnp.allclose(compiled, eager, atol=1e-12, rtol=1e-12)
+
+
+def test_exp_and_log_accept_leading_batch_dimensions():
+    axis = jnp.array([1.0, -2.0, 0.5], dtype=jnp.float64)
+    axis /= jnp.linalg.norm(axis)
+    vectors = jnp.stack((
+        jnp.zeros(3),
+        1e-9 * axis,
+        0.3 * axis,
+        (jnp.pi - 5e-5) * axis,
+        (jnp.pi + 5e-5) * axis,
+        jnp.array([-0.4, 0.2, 0.7]),
+    )).reshape((2, 3, 3))
+
+    rotations = jax.jit(expSO3)(vectors)
+    recovered = jax.jit(logSO3)(rotations)
+    expected_rotations = jnp.stack([expSO3(w) for w in vectors.reshape((-1, 3))])
+    expected_vectors = jnp.stack([logSO3(R) for R in expected_rotations])
+
+    assert rotations.shape == (2, 3, 3, 3)
+    assert recovered.shape == (2, 3, 3)
+    assert jnp.allclose(rotations.reshape((-1, 3, 3)), expected_rotations)
+    assert jnp.allclose(recovered.reshape((-1, 3)), expected_vectors)
+    assert jnp.all(is_proper_rotation(rotations))
+    assert jnp.allclose(logSO3_checked(rotations), recovered)
+
+
+@pytest.mark.parametrize(
+    "function, argument",
+    [
+        (expSO3, jnp.zeros(4)),
+        (expSO3, jnp.zeros((2, 4))),
+        (logSO3, jnp.zeros((3, 2))),
+        (logSO3, jnp.zeros((2, 3, 2))),
+    ],
+)
+def test_exp_and_log_reject_wrong_trailing_shapes(function, argument):
+    with pytest.raises(ValueError, match="trailing shape"):
+        function(argument)
 
 
 def test_hat_and_vee_accept_leading_batch_dimensions():
