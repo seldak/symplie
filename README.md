@@ -63,8 +63,23 @@ For rotation vectors on the principal branch, the test suite checks
 SE(3) twists use the convention $\xi=[\rho,\phi]$, with translation first and
 the SO(3) rotation vector second. `expSE3` accepts arrays with shape `(..., 6)`,
 and `logSE3` accepts arrays with shape `(..., 4, 4)`. `hatSE3` and `veeSE3`
-use the same leading batch dimensions for twists and algebra matrices. Run the
-JIT-compiled round-trip example with:
+use the same leading batch dimensions for twists and algebra matrices:
+
+```python
+import jax
+import jax.numpy as jnp
+from symplie import expSE3, logSE3
+
+twists = jnp.array([
+    [1.0, -2.0, 0.5, 0.1, -0.2, 0.3],
+    [-0.4, 0.7, 1.2, -1.1, 0.5, 0.2],
+])
+transforms = jax.jit(expSE3)(twists)
+recovered = jax.jit(logSE3)(transforms)
+assert jnp.allclose(recovered, twists)
+```
+
+For the complete scalar round-trip example, run:
 
 ```bash
 python examples/se3_exp_log.py
@@ -93,6 +108,20 @@ For development:
 ```bash
 pip install -e ".[dev]"
 ```
+
+### NVIDIA GPU
+
+After installing SympLie, install the CUDA-enabled JAX package:
+
+```bash
+python -m pip install --upgrade "jax[cuda13]"
+python -c 'import jax; print(jax.devices()); assert jax.default_backend() == "gpu"'
+```
+
+Use `jax[cuda12]` instead when required by the GPU or driver. See the
+[JAX installation guide](https://docs.jax.dev/en/latest/installation.html) for
+current compatibility requirements. The tests use the GPU automatically when
+it is the default JAX backend.
 
 ## Quickstart
 
