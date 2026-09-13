@@ -251,6 +251,88 @@ def simulate_free_rigid_body(
     return Rs, pis, solver_info
 
 @partial(jax.jit, static_argnames=("newton_iters",))
+def rigid_body_step(
+    R: jnp.ndarray,
+    pi: jnp.ndarray,
+    J: jnp.ndarray,
+    torque_k: jnp.ndarray,
+    torque_next: jnp.ndarray,
+    dt: float,
+    newton_iters: int = 8,
+    tolerance: float = 1e-10,
+) -> tuple[jnp.ndarray, jnp.ndarray, SolverInfo]:
+    r"""Advance one forced rigid-body step on \(SO(3)\).
+
+    The endpoint body torques enter as two half-step discrete impulses. First,
+
+    \[
+        \boldsymbol{\pi}_{k+\frac12}
+        = \boldsymbol{\pi}_k + \frac{h}{2}\boldsymbol{\tau}_k.
+    \]
+
+    The relative rotation \(F_k\) solves
+
+    \[
+        F_k J_d - J_d F_k^T
+        = h\,\widehat{\boldsymbol{\pi}}_{k+\frac12},
+        \qquad
+        J_d = \frac{1}{2}\operatorname{tr}(J)I-J.
+    \]
+
+    The new state is
+
+    \[
+        R_{k+1}=R_kF_k,
+        \qquad
+        \boldsymbol{\pi}_{k+1}
+        =F_k^T\boldsymbol{\pi}_{k+\frac12}
+         +\frac{h}{2}\boldsymbol{\tau}_{k+1}.
+    \]
+
+    Parameters
+    ----------
+    R : jax.Array, shape (3, 3)
+        Body-to-spatial attitude at the start of the step.
+    pi : jax.Array, shape (3,)
+        Body-frame angular momentum at the start of the step.
+    J : jax.Array, shape (3, 3)
+        Symmetric positive-definite body inertia tensor.
+    torque_k : jax.Array, shape (3,)
+        Body-frame torque at the start of the step.
+    torque_next : jax.Array, shape (3,)
+        Body-frame torque at the end of the step.
+    dt : float or jax.Array
+        Timestep \(h\).
+    newton_iters : int, optional
+        Newton iterations used to solve for \(F_k\). The default is 8.
+    tolerance : float or jax.Array, optional
+        Residual threshold used to form the convergence flag. The default is
+        1e-10.
+
+    Returns
+    -------
+    R_next : jax.Array, shape (3, 3)
+        Body-to-spatial attitude at the end of the step.
+    pi_next : jax.Array, shape (3,)
+        Body-frame angular momentum at the end of the step.
+    solver_info : SolverInfo
+        Residual norm and convergence flag for the nonlinear solve.
+    """
+    pi_half = pi + 0.5 * dt * torque_k
+
+    F, solver_info = solve_F_with_info(
+        pi_half,
+        J,
+        dt,
+        newton_iters=newton_iters,
+        tolerance=tolerance,
+    )
+
+    R_next = R @ F
+    pi_next = F.T @ pi_half + 0.5 * dt * torque_next
+    return R_next, pi_next, solver_info
+
+@partial(jax.jit, static_argnames=("newton_iters",))
 def simulate_rigid_body(
     R0: jnp.ndarray,
     pi0: jnp.ndarray,
@@ -267,14 +349,18 @@ def simulate_rigid_body(
     \(\boldsymbol{\pi}_k\) is body angular momentum. The supplied torque
     \(\boldsymbol{\tau}_k\) is also expressed in body coordinates.
 
-    For a timestep \(h\), the forced Lie-group variational update first finds
-    \(F_k\in SO(3)\) from
+    For a timestep \(h\), define the half-step momentum
+
+    \[
+        \boldsymbol{\pi}_{k+\frac12}
+        = \boldsymbol{\pi}_k + \frac{h}{2}\boldsymbol{\tau}_k.
+    \]
+
+    The forced Lie-group variational update finds \(F_k\in SO(3)\) from
 
     \[
         F_k J_d - J_d F_k^T
-        = h\,\widehat{
-            \boldsymbol{\pi}_k + \frac{h}{2}\boldsymbol{\tau}_k
-          },
+        = h\,\widehat{\boldsymbol{\pi}}_{k+\frac12},
         \qquad
         J_d = \frac{1}{2}\operatorname{tr}(J)I-J.
     \]
@@ -287,8 +373,7 @@ def simulate_rigid_body(
 
     \[
         \boldsymbol{\pi}_{k+1}
-        = F_k^T\boldsymbol{\pi}_k
-        + \frac{h}{2}F_k^T\boldsymbol{\tau}_k
+        = F_k^T\boldsymbol{\pi}_{k+\frac12}
         + \frac{h}{2}\boldsymbol{\tau}_{k+1}.
     \]
 
@@ -348,18 +433,16 @@ def simulate_rigid_body(
         R, pi = carry
         torque_k, torque_next = torque_pair
 
-        pi_half = pi + 0.5 * dt * torque_k
-
-        F, solver_info = solve_F_with_info(
-            pi_half,
+        R_next, pi_next, solver_info = rigid_body_step(
+            R,
+            pi,
             J,
+            torque_k,
+            torque_next,
             dt,
             newton_iters=newton_iters,
             tolerance=tolerance,
         )
-
-        R_next = R @ F
-        pi_next = F.T @ pi_half + 0.5 * dt * torque_next
 
         return (R_next, pi_next), (R_next, pi_next, solver_info)
 

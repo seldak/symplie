@@ -40,6 +40,8 @@ the active JAX backend.
 
 ::: symplie.solve_F_with_info
 
+::: symplie.rigid_body_step
+
 ::: symplie.simulate_free_rigid_body
 
 ::: symplie.simulate_rigid_body

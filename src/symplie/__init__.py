@@ -1,6 +1,7 @@
 """Public API for SympLie."""
 
 from .integrators import (
+    rigid_body_step,
     SolverInfo,
     simulate_free_rigid_body,
     simulate_rigid_body,
@@ -22,6 +23,7 @@ from .so3 import log_checked as logSO3_checked
 from .so3 import vee as veeSO3
 
 __all__ = [
+    "rigid_body_step",
     "SolverInfo",
     "determinant_error",
     "energy",
