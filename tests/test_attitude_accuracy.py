@@ -4,12 +4,13 @@ from types import SimpleNamespace
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 
 jax.config.update("jax_enable_x64", True)
 
-from symplie.integrators import simulate_free_rigid_body
+from symplie.integrators import simulate_free_rigid_body, simulate_rigid_body
 from symplie.invariants import determinant_error, ortho_error
 
 
@@ -33,6 +34,64 @@ def test_trajectory_against_scipy_reference():
     assert bool(jnp.all(solver_info.converged))
     assert benchmark.attitude_error(Rs[-1], R_reference) < 2e-6
     assert float(jnp.linalg.norm(pi_reference - pis[-1])) < 1e-6
+
+
+def test_forced_trajectory_has_second_order_accuracy():
+    J = jnp.diag(jnp.array([0.7, 1.1, 1.8], dtype=jnp.float64))
+    R0 = jnp.asarray(
+        Rotation.from_rotvec([0.2, -0.1, 0.3]).as_matrix()
+    )
+    pi0 = jnp.array([0.3, -0.2, 0.4], dtype=jnp.float64)
+    duration = 0.8
+
+    def body_torque(time):
+        return np.array(
+            [
+                0.08 * np.cos(0.7 * time),
+                -0.06 * np.sin(0.5 * time),
+                0.05 * np.cos(1.3 * time),
+            ]
+        )
+
+    reference_R, reference_pi, norm_error = benchmark.reference_attitude(
+        R0,
+        pi0,
+        J,
+        duration,
+        body_torque=body_torque,
+    )
+    assert norm_error < 1e-10
+
+    attitude_errors = []
+    momentum_errors = []
+    for dt in (0.04, 0.02, 0.01):
+        steps = round(duration / dt)
+        times = np.arange(steps + 1) * dt
+        body_torques = jnp.asarray(
+            np.stack([body_torque(time) for time in times])
+        )
+        Rs, pis, solver_info = simulate_rigid_body(
+            R0,
+            pi0,
+            J,
+            body_torques,
+            dt,
+        )
+
+        assert bool(jnp.all(solver_info.converged))
+        attitude_errors.append(benchmark.attitude_error(Rs[-1], reference_R))
+        momentum_errors.append(
+            float(jnp.linalg.norm(pis[-1] - reference_pi))
+        )
+
+    attitude_orders = jnp.log2(
+        jnp.array(attitude_errors[:-1]) / jnp.array(attitude_errors[1:])
+    )
+    momentum_orders = jnp.log2(
+        jnp.array(momentum_errors[:-1]) / jnp.array(momentum_errors[1:])
+    )
+    assert jnp.all(jnp.abs(attitude_orders - 2) < 0.15), attitude_orders
+    assert jnp.all(jnp.abs(momentum_orders - 2) < 0.15), momentum_orders
 
 
 def test_reference_and_vi_against_exact_symmetric_top():

@@ -18,10 +18,21 @@ from scipy.spatial.transform import Rotation
 from symplie.integrators import simulate_free_rigid_body
 
 
-def reference_attitude(R0, pi0, J, duration, rtol=1e-13, atol=1e-15):
+def reference_attitude(
+    R0,
+    pi0,
+    J,
+    duration,
+    rtol=1e-13,
+    atol=1e-15,
+    body_torque=None,
+):
     """Return final attitude, body momentum, and accepted-step quaternion norm drift."""
     inverse_J = np.linalg.inv(np.asarray(J))
     q0 = Rotation.from_matrix(np.asarray(R0)).as_quat()
+    if body_torque is None:
+        def body_torque(_):
+            return np.zeros(3)
 
     def derivative(t, state):
         # SciPy stores the scalar quaternion component last: q = [v, s].
@@ -29,7 +40,7 @@ def reference_attitude(R0, pi0, J, duration, rtol=1e-13, atol=1e-15):
         omega = inverse_J @ pi
         v_dot = 0.5 * (s * omega + np.cross(v, omega))
         s_dot = -0.5 * np.dot(v, omega)
-        pi_dot = np.cross(pi, omega)
+        pi_dot = np.cross(pi, omega) + np.asarray(body_torque(t))
         return np.concatenate((v_dot, [s_dot], pi_dot))
 
     solution = solve_ivp(

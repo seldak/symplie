@@ -46,6 +46,14 @@ the active JAX backend.
 
 ::: symplie.simulate_rigid_body
 
+## Attitude control
+
+::: symplie.attitude_error_vector
+
+::: symplie.geometric_pd_torque
+
+::: symplie.simulate_controlled_rigid_body
+
 ## Attitude kinematics
 
 ::: symplie.propagate_gyro

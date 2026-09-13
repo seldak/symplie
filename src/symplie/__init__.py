@@ -1,5 +1,10 @@
 """Public API for SympLie."""
 
+from .control import (
+    attitude_error_vector,
+    geometric_pd_torque,
+    simulate_controlled_rigid_body,
+)
 from .integrators import (
     rigid_body_step,
     SolverInfo,
@@ -23,12 +28,14 @@ from .so3 import log_checked as logSO3_checked
 from .so3 import vee as veeSO3
 
 __all__ = [
+    "attitude_error_vector",
     "rigid_body_step",
     "SolverInfo",
     "determinant_error",
     "energy",
     "expSE3",
     "expSO3",
+    "geometric_pd_torque",
     "hatSE3",
     "hatSO3",
     "is_proper_rotation",
@@ -40,6 +47,7 @@ __all__ = [
     "ortho_error",
     "propagate_gyro",
     "simulate_free_rigid_body",
+    "simulate_controlled_rigid_body",
     "simulate_rigid_body",
     "solve_F",
     "solve_F_with_info",
