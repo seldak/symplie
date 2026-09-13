@@ -1,5 +1,5 @@
 site_name: SympLie
-site_description: JAX Lie-group operations and structure-preserving rigid-body integration
+site_description: Differentiable Lie-group rigid-body dynamics and attitude control in JAX
 site_url: https://seldak.github.io/symplie/
 repo_url: https://github.com/seldak/symplie
 repo_name: seldak/symplie
@@ -14,7 +14,14 @@ theme:
 
 nav:
   - Overview: index.md
-  - API reference: api.md
+  - Getting started: getting-started.md
+  - Conventions: conventions.md
+  - Numerical validation: validation.md
+  - API reference:
+      - Geometry: api/geometry.md
+      - Dynamics: api/dynamics.md
+      - Control: api/control.md
+      - Kinematics: api/kinematics.md
 
 plugins:
   - search
@@ -29,7 +36,7 @@ plugins:
             show_root_full_path: false
             show_root_heading: true
             show_signature_annotations: true
-            show_source: true
+            show_source: false
 
 markdown_extensions:
   - admonition

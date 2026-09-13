@@ -4,6 +4,12 @@ artifacts/*
 !artifacts/attitude_error_vs_dt.png
 !artifacts/attitude_error_vs_dt.csv
 !artifacts/attitude_accuracy.json
+!artifacts/forced_error_vs_dt.png
+!artifacts/forced_error_vs_dt.csv
+!artifacts/forced_accuracy.json
+!artifacts/attitude_control_response.png
+!artifacts/attitude_control_response.csv
+!artifacts/attitude_control_response.json
 *.egg-info/
 __pycache__/
 .pytest_cache/

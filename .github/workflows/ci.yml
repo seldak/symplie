@@ -34,7 +34,7 @@ jobs:
       - name: Install package and development dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install --editable ".[dev]"
+          python -m pip install --editable ".[dev,docs]"
 
       - name: Run tests
         run: python -m pytest
@@ -43,17 +43,35 @@ jobs:
         run: python scripts/make_plots.py --out artifacts
 
       - name: Generate attitude accuracy plot
-        run: python scripts/attitude_accuracy.py --out artifacts
+        run: |
+          python scripts/attitude_accuracy.py \
+            --out artifacts \
+            --docs-out docs/assets
 
-      - name: Upload conservation plots
+      - name: Generate attitude control plot
+        run: |
+          python scripts/control_response.py \
+            --out artifacts \
+            --docs-out docs/assets
+
+      - name: Build documentation
+        run: mkdocs build --strict
+
+      - name: Upload validation artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: conservation-plots
+          name: validation-artifacts
           path: |
             artifacts/energy_drift.png
             artifacts/spatial_momentum_error.png
             artifacts/attitude_error_vs_dt.png
             artifacts/attitude_error_vs_dt.csv
             artifacts/attitude_accuracy.json
+            artifacts/forced_error_vs_dt.png
+            artifacts/forced_error_vs_dt.csv
+            artifacts/forced_accuracy.json
+            artifacts/attitude_control_response.png
+            artifacts/attitude_control_response.csv
+            artifacts/attitude_control_response.json
           if-no-files-found: error
           retention-days: 14
