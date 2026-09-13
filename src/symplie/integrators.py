@@ -249,3 +249,126 @@ def simulate_free_rigid_body(
     Rs = jnp.concatenate([R0[None, ...], Rh], axis=0)
     pis = jnp.concatenate([pi0[None, ...], ph], axis=0)
     return Rs, pis, solver_info
+
+@partial(jax.jit, static_argnames=("newton_iters",))
+def simulate_rigid_body(
+    R0: jnp.ndarray,
+    pi0: jnp.ndarray,
+    J: jnp.ndarray,
+    body_torques: jnp.ndarray,
+    dt: float,
+    newton_iters: int = 8,
+    tolerance: float = 1e-10,
+) -> tuple[jnp.ndarray, jnp.ndarray, SolverInfo]:
+    r"""Simulate a rigid body driven by prescribed body-frame torques.
+
+    The state at node \(k\) is \((R_k,\boldsymbol{\pi}_k)\), where \(R_k\)
+    maps body coordinates to spatial coordinates and
+    \(\boldsymbol{\pi}_k\) is body angular momentum. The supplied torque
+    \(\boldsymbol{\tau}_k\) is also expressed in body coordinates.
+
+    For a timestep \(h\), the forced Lie-group variational update first finds
+    \(F_k\in SO(3)\) from
+
+    \[
+        F_k J_d - J_d F_k^T
+        = h\,\widehat{
+            \boldsymbol{\pi}_k + \frac{h}{2}\boldsymbol{\tau}_k
+          },
+        \qquad
+        J_d = \frac{1}{2}\operatorname{tr}(J)I-J.
+    \]
+
+    The state then advances according to
+
+    \[
+        R_{k+1} = R_k F_k,
+    \]
+
+    \[
+        \boldsymbol{\pi}_{k+1}
+        = F_k^T\boldsymbol{\pi}_k
+        + \frac{h}{2}F_k^T\boldsymbol{\tau}_k
+        + \frac{h}{2}\boldsymbol{\tau}_{k+1}.
+    \]
+
+    The two half-step torque terms are the discrete forces at the ends of the
+    interval. Consequently, a trajectory with ``steps`` transitions requires
+    ``steps + 1`` torque samples. Setting every torque to zero recovers
+    `simulate_free_rigid_body`.
+
+    Parameters
+    ----------
+    R0 : jax.Array, shape (3, 3)
+        Initial body-to-spatial attitude. The caller is responsible for
+        providing a proper rotation.
+    pi0 : jax.Array, shape (3,)
+        Initial body-frame angular momentum.
+    J : jax.Array, shape (3, 3)
+        Symmetric positive-definite body inertia tensor. It may be non-diagonal.
+    body_torques : jax.Array, shape (steps + 1, 3)
+        Prescribed body-frame torque at every state node, including both the
+        initial and final nodes. The number of transitions is inferred from
+        this leading dimension.
+    dt : float or jax.Array
+        Constant simulation timestep \(h\).
+    newton_iters : int, optional
+        Newton iterations used for every transition. The default is ``8`` and
+        the value is static under JIT compilation.
+    tolerance : float or jax.Array, optional
+        Residual threshold used to form each convergence flag. The default is
+        ``1e-10``.
+
+    Returns
+    -------
+    Rs : jax.Array, shape (steps + 1, 3, 3)
+        Attitude history including ``R0``.
+    pis : jax.Array, shape (steps + 1, 3)
+        Body-angular-momentum history including ``pi0``.
+    solver_info : SolverInfo
+        Arrays of residual norms and convergence flags with shape ``(steps,)``;
+        there is one diagnostic entry per transition.
+
+    Notes
+    -----
+    The nonlinear equation is the same Moser--Veselov solve used by
+    `simulate_free_rigid_body`, with the first half of the discrete torque
+    impulse included in its momentum argument. As in the free-body simulator,
+    the returned trajectory must not be trusted unless every entry of
+    ``solver_info.converged`` is true.
+
+    References
+    ----------
+    T. Lee, N. H. McClamroch, and M. Leok, "A Lie Group Variational
+    Integrator for the Attitude Dynamics of a Rigid Body with Applications to
+    the 3D Pendulum," *Proceedings of the 2005 IEEE Conference on Control
+    Applications*, pp. 962--967, 2005. doi:10.1109/CCA.2005.1507254.
+    """
+    def scan_fn(carry, torque_pair):
+        R, pi = carry
+        torque_k, torque_next = torque_pair
+
+        pi_half = pi + 0.5 * dt * torque_k
+
+        F, solver_info = solve_F_with_info(
+            pi_half,
+            J,
+            dt,
+            newton_iters=newton_iters,
+            tolerance=tolerance,
+        )
+
+        R_next = R @ F
+        pi_next = F.T @ pi_half + 0.5 * dt * torque_next
+
+        return (R_next, pi_next), (R_next, pi_next, solver_info)
+
+    (_, _), (Rh, ph, solver_info) = jax.lax.scan(
+        scan_fn,
+        (R0, pi0),
+        (body_torques[:-1], body_torques[1:]),
+    )
+
+    Rs = jnp.concatenate([R0[None, ...], Rh], axis=0)
+    pis = jnp.concatenate([pi0[None, ...], ph], axis=0)
+    return Rs, pis, solver_info

@@ -3,6 +3,7 @@
 from .integrators import (
     SolverInfo,
     simulate_free_rigid_body,
+    simulate_rigid_body,
     solve_F,
     solve_F_with_info,
 )
@@ -37,6 +38,7 @@ __all__ = [
     "ortho_error",
     "propagate_gyro",
     "simulate_free_rigid_body",
+    "simulate_rigid_body",
     "solve_F",
     "solve_F_with_info",
     "spatial_momentum",

@@ -42,6 +42,8 @@ the active JAX backend.
 
 ::: symplie.simulate_free_rigid_body
 
+::: symplie.simulate_rigid_body
+
 ## Attitude kinematics
 
 ::: symplie.propagate_gyro
