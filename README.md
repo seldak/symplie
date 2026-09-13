@@ -3,44 +3,47 @@
 [![CI](https://github.com/seldak/symplie/actions/workflows/ci.yml/badge.svg)](https://github.com/seldak/symplie/actions/workflows/ci.yml)
 
 SympLie is an experimental JAX package for differentiable Lie-group
-rigid-body dynamics. It combines batched $SO(3)$ and $SE(3)$ operations
-with structure-preserving rotational integration and geometric attitude
-control.
+rigid-body dynamics and control.
 
 It currently provides:
 
 - Numerically stable, batched $SO(3)$ and $SE(3)$ exponential and
   logarithm maps.
-- Torque-free and externally forced Moser–Veselov rigid-body integration.
-- A composable forced step for custom JAX scans and control loops.
-- State-dependent body torque under zero-order hold.
-- Fixed-target geometric PD attitude control.
-- Gyroscope attitude propagation with optional bias compensation.
+- Torque-free and forced Moser–Veselov integration, including a composable
+  step for custom JAX scans and zero-order-hold control loops.
+- Fixed-target geometric PD attitude control and gyroscope propagation with
+  optional bias compensation.
 - JIT compilation, automatic differentiation, and per-step solver diagnostics.
 
-SympLie is not a replacement for jaxlie, Sophus, Drake, or Pinocchio. It has a
-deliberately narrow focus on Lie-group rotational dynamics and control.
+## Installation
 
-## Attitude control
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+```
 
-![Closed-loop attitude-control response](artifacts/attitude_control_response.png)
+For tests and figure generation:
 
-A geometric PD controller regulates a $0.781$ rad initial attitude error
-while damping angular velocity. The command is recomputed every $0.01$ s and
-held constant between samples. After eight seconds, attitude error is
-$1.15\times10^{-3}$ rad and angular-rate norm is
-$1.87\times10^{-3}$ rad/s.
+```bash
+python -m pip install -e ".[dev]"
+pytest
+```
 
-## Forced dynamics accuracy
+### Optional CUDA support
 
-![Forced attitude and momentum convergence](artifacts/forced_error_vs_dt.png)
+The default installation uses CPU-backed JAX. To use a CUDA backend instead,
+install the matching JAX package:
 
-A smooth three-axis body torque is integrated against a quaternion-based SciPy
-DOP853 reference. Halving the timestep reduces both final attitude and momentum
-error by a factor of four; their measured convergence orders are 2.00.
+```bash
+python -m pip install --upgrade "jax[cuda13]"
+python -c 'import jax; print(jax.devices()); assert jax.default_backend() == "gpu"'
+```
 
-The torque-free spatial-momentum and energy comparisons remain available in
-the [numerical validation notes](docs/validation.md).
+Use `jax[cuda12]` when required by the installed driver or CUDA installation.
+Consult the [JAX installation guide](https://docs.jax.dev/en/latest/installation.html)
+for current compatibility requirements. The test suite uses the active JAX
+backend.
 
 ## Quickstart
 
@@ -64,42 +67,15 @@ R_next, pi_next, info = rigid_body_step(
 assert info.converged, info.residual_norm
 ```
 
-For closed-loop control, run:
+`rigid_body_step` advances attitude and body angular momentum by one forced
+timestep and reports whether its nonlinear solve converged.
+
+The following closed-loop example uses geometric PD control to regulate a target
+attitude while damping angular velocity:
 
 ```bash
 python examples/attitude_control.py
 ```
-
-## Installation
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e .
-```
-
-For tests and figure generation:
-
-```bash
-python -m pip install -e ".[dev]"
-pytest
-```
-
-JAX accelerator installations depend on the platform and CUDA version. Follow
-the [official JAX installation guide](https://docs.jax.dev/en/latest/installation.html)
-for GPU or TPU support. The test suite uses the active JAX backend.
-
-### NVIDIA GPU
-
-After installing SympLie, install the CUDA-enabled JAX package:
-
-```bash
-python -m pip install --upgrade "jax[cuda13]"
-python -c 'import jax; print(jax.devices()); assert jax.default_backend() == "gpu"'
-```
-
-Use `jax[cuda12]` when required by the installed driver or GPU. Consult the
-JAX installation guide for current compatibility requirements.
 
 ## Documentation
 
@@ -107,16 +83,9 @@ The [documentation](https://seldak.github.io/symplie/) covers installation,
 frame and torque-sampling conventions, numerical validation, and the complete
 public API.
 
-Regenerate the published figures with:
-
-```bash
-python scripts/attitude_accuracy.py --out artifacts --docs-out docs/assets
-python scripts/control_response.py --out artifacts --docs-out docs/assets
-python scripts/make_plots.py --out artifacts
-```
-
 ## Scope
 
-SympLie currently models rotational motion only. It does not implement
-translation, full $SE(3)$ rigid-body dynamics, contact, constraints,
-actuator allocation, state estimation, or robotics middleware.
+SympLie deliberately focuses on rotational dynamics and control; it is not a
+replacement for jaxlie, Sophus, Drake, or Pinocchio. It does not implement
+translation, full $SE(3)$ rigid-body dynamics, contact, constraints, actuator
+allocation, state estimation, or robotics middleware.

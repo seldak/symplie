@@ -16,22 +16,23 @@ Install the development dependencies to run tests and regenerate figures:
 python -m pip install -e ".[dev]"
 ```
 
-JAX accelerator packages depend on the installed driver and CUDA version.
+The default installation uses CPU-backed JAX. Accelerator packages depend on
+the installed driver and CUDA version.
 Follow the [official JAX installation guide](https://docs.jax.dev/en/latest/installation.html)
-when a GPU or TPU backend is required.
+when another backend is required.
 
-### NVIDIA GPU
+### Optional CUDA support
 
-For a compatible CUDA 13 installation:
+For a compatible CUDA 13 environment:
 
 ```bash
 python -m pip install --upgrade "jax[cuda13]"
 python -c 'import jax; print(jax.devices()); assert jax.default_backend() == "gpu"'
 ```
 
-Use `jax[cuda12]` when required by the installed driver and GPU. The JAX
-installation guide is authoritative for current compatibility requirements.
-SympLie tests use whichever JAX backend is active.
+Use `jax[cuda12]` when required by the installed driver or CUDA installation.
+The JAX installation guide is authoritative for current compatibility
+requirements. SympLie tests use whichever JAX backend is active.
 
 ## One forced step
 

@@ -32,3 +32,11 @@ as supporting artifacts rather than headline figures.
 
 All figure-generation scripts abort if a nonlinear solve fails its configured
 tolerance.
+
+## Reproducing the figures
+
+```bash
+python scripts/attitude_accuracy.py --out artifacts --docs-out docs/assets
+python scripts/control_response.py --out artifacts --docs-out docs/assets
+python scripts/make_plots.py --out artifacts
+```
