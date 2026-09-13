@@ -17,7 +17,7 @@ def propagate_gyro(
     r"""Propagate attitude from body-frame angular-rate measurements.
 
     This function integrates a sequence of gyroscope measurements directly on
-    :math:`SO(3)`. Each angular increment is mapped to a rotation matrix with
+    \(SO(3)\). Each angular increment is mapped to a rotation matrix with
     the exponential map and composed with the current attitude. Consequently,
     the propagation does not require Euler angles, quaternion normalization,
     or projection of an additively integrated matrix back onto the rotation
@@ -26,36 +26,36 @@ def propagate_gyro(
     Frame convention
     ----------------
     ``R0`` is the initial body-to-world rotation. For a vector
-    :math:`\mathbf{v}_B` expressed in the body frame, the corresponding vector
+    \(\mathbf{v}_B\) expressed in the body frame, the corresponding vector
     in the world frame is
 
-    .. math::
-
+    \[
         \mathbf{v}_W = R_0\,\mathbf{v}_B.
+    \]
 
     Angular velocity is expressed in the body frame. The attitude increment is
-    therefore composed on the right. If :math:`R_k` is the attitude at sample
-    :math:`k`, the update is
+    therefore composed on the right. If \(R_k\) is the attitude at sample
+    \(k\), the update is
 
-    .. math::
-
+    \[
         R_{k+1}
         = R_k\,\operatorname{Exp}\!\left(
             (\boldsymbol{\omega}_{m,k} - \mathbf{b})\,\Delta t_k
           \right),
+    \]
 
-    where :math:`\boldsymbol{\omega}_{m,k}` is the measured angular velocity,
-    :math:`\mathbf{b}` is a constant gyroscope bias, and :math:`\Delta t_k` is
+    where \(\boldsymbol{\omega}_{m,k}\) is the measured angular velocity,
+    \(\mathbf{b}\) is a constant gyroscope bias, and \(\Delta t_k\) is
     the duration represented by that measurement. Equivalently, the model
     assumes
 
-    .. math::
-
+    \[
         \boldsymbol{\omega}_{m,k}
         = \boldsymbol{\omega}_k + \mathbf{b}.
+    \]
 
     Setting ``bias`` to the known sensor bias therefore recovers the corrected
-    body rate :math:`\boldsymbol{\omega}_k` before propagation. When ``bias``
+    body rate \(\boldsymbol{\omega}_k\) before propagation. When ``bias``
     is omitted, it is taken to be zero.
 
     The angular velocity is treated as constant over each sampling interval.
@@ -68,7 +68,7 @@ def propagate_gyro(
     ----------
     R0 : jax.Array, shape (3, 3)
         Initial body-to-world rotation matrix. The caller is responsible for
-        providing a proper rotation in :math:`SO(3)`.
+        providing a proper rotation in \(SO(3)\).
     angular_velocity : jax.Array, shape (samples, 3)
         Body-frame gyroscope measurements in radians per second. Rows are
         consumed in chronological order.
@@ -84,16 +84,16 @@ def propagate_gyro(
     -------
     jax.Array, shape (samples + 1, 3, 3)
         Body-to-world attitude history. Element zero is exactly ``R0`` and
-        element :math:`k+1` is the attitude after consuming measurement
-        :math:`k`. An empty measurement sequence therefore returns an array
+        element \(k+1\) is the attitude after consuming measurement
+        \(k\). An empty measurement sequence therefore returns an array
         containing only ``R0``.
 
     Notes
     -----
-    The recurrence is evaluated with :func:`jax.lax.scan`, so the complete
-    propagation is compatible with :func:`jax.jit` and can be differentiated
+    The recurrence is evaluated with `jax.lax.scan`, so the complete
+    propagation is compatible with `jax.jit` and can be differentiated
     with respect to the angular velocities, timesteps, initial attitude, or
-    bias. The output remains on :math:`SO(3)` up to floating-point roundoff when
+    bias. The output remains on \(SO(3)\) up to floating-point roundoff when
     ``R0`` is a proper rotation.
 
     This is gyroscope-only attitude propagation, not a complete IMU model or

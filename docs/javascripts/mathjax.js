@@ -1,0 +1,23 @@
+window.MathJax = {
+  loader: {
+    load: ["[tex]/boldsymbol"],
+  },
+  tex: {
+    inlineMath: [["\\(", "\\)"]],
+    displayMath: [["\\[", "\\]"]],
+    packages: { "[+]": ["boldsymbol"] },
+    processEscapes: true,
+    processEnvironments: true,
+  },
+  options: {
+    ignoreHtmlClass: ".*|",
+    processHtmlClass: "arithmatex",
+  },
+};
+
+document$.subscribe(() => {
+  MathJax.startup.output.clearCache();
+  MathJax.typesetClear();
+  MathJax.texReset();
+  MathJax.typesetPromise();
+});

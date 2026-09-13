@@ -19,6 +19,10 @@ dev = [
   "matplotlib>=3.8",
   "scipy>=1.11"
 ]
+docs = [
+  "mkdocs-material>=9.7,<10",
+  "mkdocstrings[python]>=0.30"
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

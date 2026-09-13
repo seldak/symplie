@@ -38,7 +38,36 @@ def _assemble_transform(R: jnp.ndarray, p: jnp.ndarray) -> jnp.ndarray:
 
 
 def hat(xi: jnp.ndarray) -> jnp.ndarray:
-    """Map twists with shape ``(..., 6)`` to se(3) matrices."""
+    r"""Map twists to matrices in \(\mathfrak{se}(3)\).
+
+    SympLie orders a twist as \(\boldsymbol{\xi}=[\boldsymbol{\rho},
+    \boldsymbol{\phi}]\), with translation first and rotation second. The hat
+    operator is
+
+    \[
+        \widehat{\boldsymbol{\xi}} =
+        \begin{bmatrix}
+            \widehat{\boldsymbol{\phi}} & \boldsymbol{\rho} \\
+            \mathbf{0}^{T} & 0
+        \end{bmatrix}.
+    \]
+
+    Parameters
+    ----------
+    xi : jax.Array, shape (..., 6)
+        One twist or a batch of twists in ``[rho, phi]`` order.
+
+    Returns
+    -------
+    jax.Array, shape (..., 4, 4)
+        Homogeneous Lie-algebra matrices with the same leading batch
+        dimensions and dtype as ``xi``.
+
+    Raises
+    ------
+    ValueError
+        If the trailing shape of ``xi`` is not ``(6,)``.
+    """
     if xi.shape[-1:] != (6,):
         raise ValueError("hat expects an array with trailing shape (6,)")
 
@@ -51,7 +80,36 @@ def hat(xi: jnp.ndarray) -> jnp.ndarray:
 
 
 def vee(X: jnp.ndarray) -> jnp.ndarray:
-    """Map se(3) matrices with shape ``(..., 4, 4)`` to ``[rho, phi]``."""
+    r"""Map matrices in \(\mathfrak{se}(3)\) back to twists.
+
+    For a matrix
+
+    \[
+        X = \begin{bmatrix}
+            \widehat{\boldsymbol{\phi}} & \boldsymbol{\rho} \\
+            \mathbf{0}^{T} & 0
+        \end{bmatrix},
+    \]
+
+    the result is the translation-first twist
+    \([\boldsymbol{\rho},\boldsymbol{\phi}]\).
+
+    Parameters
+    ----------
+    X : jax.Array, shape (..., 4, 4)
+        One Lie-algebra matrix or a batch of matrices. The function assumes the
+        expected \(\mathfrak{se}(3)\) structure and does not validate it.
+
+    Returns
+    -------
+    jax.Array, shape (..., 6)
+        Twists in ``[rho, phi]`` order.
+
+    Raises
+    ------
+    ValueError
+        If the trailing shape of ``X`` is not ``(4, 4)``.
+    """
     if X.shape[-2:] != (4, 4):
         raise ValueError("vee expects an array with trailing shape (4, 4)")
 
@@ -91,7 +149,41 @@ def _left_jacobian_SO3_single(phi: jnp.ndarray) -> jnp.ndarray:
 
 
 def left_jacobian_SO3(phi: jnp.ndarray) -> jnp.ndarray:
-    """SO(3) left Jacobian: (..., 3) -> (..., 3, 3)."""
+    r"""Evaluate the left Jacobian of \(SO(3)\).
+
+    For \(\theta=\lVert\boldsymbol{\phi}\rVert\) and
+    \(\Phi=\widehat{\boldsymbol{\phi}}\), the Jacobian is
+
+    \[
+        J_l(\boldsymbol{\phi})
+        = I
+        + \frac{1-\cos\theta}{\theta^2}\Phi
+        + \frac{\theta-\sin\theta}{\theta^3}\Phi^2.
+    \]
+
+    It maps the translational component of an \(\mathfrak{se}(3)\) twist
+    to the translation in the corresponding homogeneous transform.
+
+    Parameters
+    ----------
+    phi : jax.Array, shape (..., 3)
+        Rotation vectors in radians.
+
+    Returns
+    -------
+    jax.Array, shape (..., 3, 3)
+        Left Jacobians with the same leading batch dimensions as ``phi``.
+
+    Raises
+    ------
+    ValueError
+        If the trailing shape of ``phi`` is not ``(3,)``.
+
+    Notes
+    -----
+    A series expansion is used near zero. The implementation is compatible
+    with JAX JIT compilation, batching, and automatic differentiation.
+    """
     if phi.shape[-1:] != (3,):
         raise ValueError("left_jacobian_SO3 expects trailing shape (3,)")
     if phi.ndim == 1:
@@ -124,7 +216,41 @@ def _left_jacobian_inverse_SO3_single(phi: jnp.ndarray) -> jnp.ndarray:
 
 
 def left_jacobian_inverse_SO3(phi: jnp.ndarray) -> jnp.ndarray:
-    """Inverse SO(3) left Jacobian: (..., 3) -> (..., 3, 3)."""
+    r"""Evaluate the inverse left Jacobian of \(SO(3)\).
+
+    For \(\theta=\lVert\boldsymbol{\phi}\rVert\) and
+    \(\Phi=\widehat{\boldsymbol{\phi}}\), the inverse is
+
+    \[
+        J_l^{-1}(\boldsymbol{\phi})
+        = I - \frac{1}{2}\Phi
+        + \left[
+            \frac{1}{\theta^2}
+            - \frac{1+\cos\theta}{2\theta\sin\theta}
+          \right]\Phi^2.
+    \]
+
+    Parameters
+    ----------
+    phi : jax.Array, shape (..., 3)
+        Rotation vectors in radians.
+
+    Returns
+    -------
+    jax.Array, shape (..., 3, 3)
+        Inverse left Jacobians with the same leading batch dimensions as
+        ``phi``.
+
+    Raises
+    ------
+    ValueError
+        If the trailing shape of ``phi`` is not ``(3,)``.
+
+    Notes
+    -----
+    A series expansion is used near zero. This inverse is used by
+    `log` to recover the translational twist coordinate.
+    """
     if phi.shape[-1:] != (3,):
         raise ValueError("left_jacobian_inverse_SO3 expects trailing shape (3,)")
     if phi.ndim == 1:
@@ -144,7 +270,42 @@ def _exp_single(xi: jnp.ndarray) -> jnp.ndarray:
 
 
 def exp(xi: jnp.ndarray) -> jnp.ndarray:
-    """SE(3) exponential map: (..., 6) -> (..., 4, 4)."""
+    r"""Evaluate the exponential map from twists to \(SE(3)\).
+
+    For the translation-first twist
+    \(\boldsymbol{\xi}=[\boldsymbol{\rho},\boldsymbol{\phi}]\), SympLie
+    constructs
+
+    \[
+        \operatorname{Exp}(\boldsymbol{\xi}) =
+        \begin{bmatrix}
+            \operatorname{Exp}(\boldsymbol{\phi})
+            & J_l(\boldsymbol{\phi})\boldsymbol{\rho} \\
+            \mathbf{0}^{T} & 1
+        \end{bmatrix}.
+    \]
+
+    Parameters
+    ----------
+    xi : jax.Array, shape (..., 6)
+        Twists in ``[rho, phi]`` order. Rotational components are in radians.
+
+    Returns
+    -------
+    jax.Array, shape (..., 4, 4)
+        Homogeneous transformation matrices with the same leading batch
+        dimensions as ``xi``.
+
+    Raises
+    ------
+    ValueError
+        If the trailing shape of ``xi`` is not ``(6,)``.
+
+    Notes
+    -----
+    The implementation uses the numerically stable \(SO(3)\) exponential
+    and left Jacobian, including their small-angle paths.
+    """
     if xi.shape[-1:] != (6,):
         raise ValueError("exp expects an array with trailing shape (6,)")
     if xi.ndim == 1:
@@ -165,7 +326,47 @@ def _log_single(T: jnp.ndarray) -> jnp.ndarray:
 
 
 def log(T: jnp.ndarray) -> jnp.ndarray:
-    """Principal SE(3) logarithm map: (..., 4, 4) -> (..., 6)."""
+    r"""Evaluate the principal logarithm of transformations in \(SE(3)\).
+
+    For
+
+    \[
+        T = \begin{bmatrix}R & \mathbf{p} \\ \mathbf{0}^{T} & 1\end{bmatrix},
+    \]
+
+    the principal twist is
+
+    \[
+        \boldsymbol{\phi}=\operatorname{Log}(R),
+        \qquad
+        \boldsymbol{\rho}=J_l^{-1}(\boldsymbol{\phi})\mathbf{p},
+        \qquad
+        \boldsymbol{\xi}=[\boldsymbol{\rho},\boldsymbol{\phi}].
+    \]
+
+    Parameters
+    ----------
+    T : jax.Array, shape (..., 4, 4)
+        One homogeneous transformation or a batch of transformations.
+
+    Returns
+    -------
+    jax.Array, shape (..., 6)
+        Principal translation-first twists. The rotation-vector norm lies in
+        \([0,\pi]\).
+
+    Raises
+    ------
+    ValueError
+        If the trailing shape of ``T`` is not ``(4, 4)``.
+
+    Notes
+    -----
+    ``log`` assumes that the rotational block is a proper rotation and that
+    the final row has homogeneous-transform structure. It does not validate
+    either condition. The rotational principal-branch behavior and branch cut
+    are inherited from `symplie.so3.log`.
+    """
     if T.shape[-2:] != (4, 4):
         raise ValueError("log expects an array with trailing shape (4, 4)")
     if T.ndim == 2:
