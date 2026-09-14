@@ -176,9 +176,11 @@ def geometric_tracking_torque(
     Notes
     -----
     Setting the desired angular velocity and acceleration to zero recovers
-    :func:`geometric_pd_torque`. This continuous-time control law is sampled
-    under zero-order hold by :func:`simulate_controlled_rigid_body`; its
-    continuous-time stability result does not apply to arbitrary timesteps.
+    :func:`geometric_pd_torque`. This function implements the attitude-control
+    moment from the cited work, not its translational or thrust controller.
+    The continuous-time control law is sampled under zero-order hold by
+    :func:`simulate_controlled_rigid_body`; its continuous-time stability
+    result does not apply to arbitrary timesteps.
 
     References
     ----------
