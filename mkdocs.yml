@@ -16,6 +16,7 @@ nav:
   - Overview: index.md
   - Getting started: getting-started.md
   - Conventions: conventions.md
+  - Compatibility: compatibility.md
   - Numerical validation: validation.md
   - API reference:
       - Geometry: api/geometry.md
