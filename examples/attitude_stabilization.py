@@ -1,4 +1,4 @@
-"""Stabilize a rigid body at a fixed target attitude."""
+"""Stabilize a rigid body at a fixed attitude with geometric PD control."""
 
 import jax
 

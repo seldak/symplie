@@ -3,6 +3,7 @@
 from .control import (
     attitude_error_vector,
     geometric_pd_torque,
+    geometric_tracking_torque,
     simulate_controlled_rigid_body,
 )
 from .integrators import (
@@ -36,6 +37,7 @@ __all__ = [
     "expSE3",
     "expSO3",
     "geometric_pd_torque",
+    "geometric_tracking_torque",
     "hatSE3",
     "hatSO3",
     "is_proper_rotation",

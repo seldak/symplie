@@ -67,7 +67,13 @@ torques and zero-order-held feedback torque.
 Run the closed-loop attitude-regulation example:
 
 ```bash
-python examples/attitude_control.py
+python examples/attitude_stabilization.py
+```
+
+Run the moving-reference attitude-tracking example:
+
+```bash
+python examples/attitude_tracking.py
 ```
 
 Run the \(SE(3)\) exponential/logarithm round trip:

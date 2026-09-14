@@ -105,6 +105,107 @@ def geometric_pd_torque(
     )
 
 
+@jax.jit
+def geometric_tracking_torque(
+    R: jnp.ndarray,
+    pi: jnp.ndarray,
+    J: jnp.ndarray,
+    R_target: jnp.ndarray,
+    target_angular_velocity: jnp.ndarray,
+    target_angular_acceleration: jnp.ndarray,
+    attitude_gain: float,
+    rate_gain: float,
+) -> jnp.ndarray:
+    r"""Compute body torque for geometric attitude trajectory tracking.
+
+    The desired attitude satisfies
+
+    \[
+        \dot R_d = R_d\widehat{\boldsymbol{\omega}}_d,
+    \]
+
+    where both \(\boldsymbol{\omega}_d\) and
+    \(\dot{\boldsymbol{\omega}}_d\) are expressed in the desired body frame.
+    The desired angular velocity is transported into the current body frame
+    before forming the rate error,
+
+    \[
+        \mathbf{e}_\omega
+        = \boldsymbol{\omega}
+          - R^T R_d\boldsymbol{\omega}_d.
+    \]
+
+    Together with the intrinsic attitude error \(\mathbf{e}_R\), the
+    commanded body torque is
+
+    \[
+        \boldsymbol{\tau}
+        = -k_R\mathbf{e}_R - k_\omega\mathbf{e}_\omega
+          + \boldsymbol{\omega}\times J\boldsymbol{\omega}
+          - J\left(
+              \widehat{\boldsymbol{\omega}}R^T R_d
+              \boldsymbol{\omega}_d
+              - R^T R_d\dot{\boldsymbol{\omega}}_d
+            \right).
+    \]
+
+    Parameters
+    ----------
+    R : jax.Array, shape (3, 3)
+        Current body-to-spatial attitude.
+    pi : jax.Array, shape (3,)
+        Current body-frame angular momentum.
+    J : jax.Array, shape (3, 3)
+        Symmetric positive-definite body inertia tensor.
+    R_target : jax.Array, shape (3, 3)
+        Desired body-to-spatial attitude at the current time.
+    target_angular_velocity : jax.Array, shape (3,)
+        Desired angular velocity expressed in the desired body frame.
+    target_angular_acceleration : jax.Array, shape (3,)
+        Time derivative of the desired body-frame angular velocity.
+    attitude_gain : float or jax.Array
+        Positive attitude gain \(k_R\).
+    rate_gain : float or jax.Array
+        Positive angular-rate gain \(k_\omega\).
+
+    Returns
+    -------
+    jax.Array, shape (3,)
+        Commanded body-frame torque.
+
+    Notes
+    -----
+    Setting the desired angular velocity and acceleration to zero recovers
+    :func:`geometric_pd_torque`. This continuous-time control law is sampled
+    under zero-order hold by :func:`simulate_controlled_rigid_body`; its
+    continuous-time stability result does not apply to arbitrary timesteps.
+
+    References
+    ----------
+    T. Lee, M. Leok, and N. H. McClamroch, "Geometric Tracking Control of a
+    Quadrotor UAV on SE(3)," 49th IEEE Conference on Decision and Control,
+    2010. [doi:10.1109/CDC.2010.5717652](https://doi.org/10.1109/CDC.2010.5717652)
+    """
+    omega = jnp.linalg.solve(J, pi)
+    attitude_error = attitude_error_vector(R, R_target)
+
+    target_to_body = jnp.swapaxes(R, -1, -2) @ R_target
+    target_rate_body = target_to_body @ target_angular_velocity
+    rate_error = omega - target_rate_body
+
+    feedforward = J @ (
+        target_to_body @ target_angular_acceleration
+        - jnp.cross(omega, target_rate_body)
+    )
+
+    return (
+        -attitude_gain * attitude_error
+        - rate_gain * rate_error
+        + jnp.cross(omega, pi)
+        + feedforward
+    )
+
+
 @partial(
     jax.jit,
     static_argnames=("torque_fn", "steps", "newton_iters"),

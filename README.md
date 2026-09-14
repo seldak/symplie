@@ -11,8 +11,8 @@ It currently provides:
   logarithm maps.
 - Torque-free and forced Moser–Veselov integration, including a composable
   step for custom JAX scans and zero-order-hold control loops.
-- Fixed-target geometric PD attitude control and gyroscope propagation with
-  optional bias compensation.
+- Geometric attitude stabilization and trajectory tracking, plus gyroscope
+  propagation with optional bias compensation.
 - JIT compilation, automatic differentiation, and per-step solver diagnostics.
 
 ## Installation
@@ -70,11 +70,12 @@ assert info.converged, info.residual_norm
 `rigid_body_step` advances attitude and body angular momentum by one forced
 timestep and reports whether its nonlinear solve converged.
 
-The following closed-loop example uses geometric PD control to regulate a target
-attitude while damping angular velocity:
+The closed-loop examples demonstrate fixed-target stabilization and smooth
+attitude trajectory tracking:
 
 ```bash
-python examples/attitude_control.py
+python examples/attitude_stabilization.py
+python examples/attitude_tracking.py
 ```
 
 ## Documentation
