@@ -25,6 +25,20 @@ class SolverInfo(NamedTuple):
     residual_norm: jnp.ndarray
     converged: jnp.ndarray
 
+
+def _step_sizes(dt: float | jnp.ndarray, steps: int) -> jnp.ndarray:
+    """Return one timestep per transition."""
+    dt = jnp.asarray(dt)
+
+    if dt.ndim == 0:
+        return jnp.broadcast_to(dt, (steps,))
+
+    if dt.shape != (steps,):
+        raise ValueError(f"dt must be scalar or have shape ({steps},)")
+
+    return dt
+
+
 def discrete_inertia(J: jnp.ndarray) -> jnp.ndarray:
     r"""Construct the discrete inertia used by the Moser–Veselov equation.
 
@@ -163,7 +177,7 @@ def simulate_free_rigid_body(
     R0: jnp.ndarray,
     pi0: jnp.ndarray,
     J: jnp.ndarray,
-    dt: float,
+    dt: float | jnp.ndarray,
     steps: int,
     newton_iters: int = 8,
     tolerance: float = 1e-10,
@@ -197,8 +211,9 @@ def simulate_free_rigid_body(
         Initial body-frame angular momentum.
     J : jax.Array, shape (3, 3)
         Symmetric positive-definite body inertia tensor. It may be non-diagonal.
-    dt : float or jax.Array
-        Constant simulation timestep.
+    dt : float or jax.Array, shape (steps,)
+        Positive simulation timestep. A scalar applies the same interval to
+        every transition; an array supplies one interval per transition.
     steps : int
         Number of discrete transitions. This value is static under JIT
         compilation.
@@ -226,12 +241,14 @@ def simulate_free_rigid_body(
     before using the result. The complete simulation is compatible with
     `jax.jit` and automatic differentiation.
     """
-    def scan_fn(carry, _):
+    timesteps = _step_sizes(dt, steps)
+
+    def scan_fn(carry, dt_k):
         R, pi = carry
         F, solver_info = solve_F_with_info(
             pi,
             J,
-            dt,
+            dt_k,
             newton_iters=newton_iters,
             tolerance=tolerance,
         )
@@ -242,8 +259,7 @@ def simulate_free_rigid_body(
     (Rf, pif), (Rh, ph, solver_info) = jax.lax.scan(
         scan_fn,
         (R0, pi0),
-        xs=None,
-        length=steps,
+        timesteps,
     )
 
     Rs = jnp.concatenate([R0[None, ...], Rh], axis=0)
@@ -338,7 +354,7 @@ def simulate_rigid_body(
     pi0: jnp.ndarray,
     J: jnp.ndarray,
     body_torques: jnp.ndarray,
-    dt: float,
+    dt: float | jnp.ndarray,
     newton_iters: int = 8,
     tolerance: float = 1e-10,
 ) -> tuple[jnp.ndarray, jnp.ndarray, SolverInfo]:
@@ -395,8 +411,9 @@ def simulate_rigid_body(
         Prescribed body-frame torque at every state node, including both the
         initial and final nodes. The number of transitions is inferred from
         this leading dimension.
-    dt : float or jax.Array
-        Constant simulation timestep \(h\).
+    dt : float or jax.Array, shape (steps,)
+        Positive simulation timestep. A scalar applies the same interval to
+        every transition; an array supplies one interval per transition.
     newton_iters : int, optional
         Newton iterations used for every transition. The default is ``8`` and
         the value is static under JIT compilation.
@@ -429,9 +446,12 @@ def simulate_rigid_body(
     the 3D Pendulum," *Proceedings of the 2005 IEEE Conference on Control
     Applications*, pp. 962--967, 2005. doi:10.1109/CCA.2005.1507254.
     """
-    def scan_fn(carry, torque_pair):
+    steps = body_torques.shape[0] - 1
+    timesteps = _step_sizes(dt, steps)
+
+    def scan_fn(carry, step_data):
         R, pi = carry
-        torque_k, torque_next = torque_pair
+        torque_k, torque_next, dt_k = step_data
 
         R_next, pi_next, solver_info = rigid_body_step(
             R,
@@ -439,7 +459,7 @@ def simulate_rigid_body(
             J,
             torque_k,
             torque_next,
-            dt,
+            dt_k,
             newton_iters=newton_iters,
             tolerance=tolerance,
         )
@@ -449,7 +469,7 @@ def simulate_rigid_body(
     (_, _), (Rh, ph, solver_info) = jax.lax.scan(
         scan_fn,
         (R0, pi0),
-        (body_torques[:-1], body_torques[1:]),
+        (body_torques[:-1], body_torques[1:], timesteps),
     )
 
     Rs = jnp.concatenate([R0[None, ...], Rh], axis=0)

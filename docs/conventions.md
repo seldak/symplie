@@ -26,6 +26,21 @@ trajectory with `steps` transitions therefore requires an array with shape
 \(\boldsymbol{\tau}_k\) and \(\boldsymbol{\tau}_{k+1}\) in the discrete-force
 update.
 
+## Timesteps
+
+`simulate_free_rigid_body` and `simulate_rigid_body` accept either one scalar
+timestep or an array with one positive interval per transition. For intervals
+\(h_0,\ldots,h_{N-1}\), the state-node times are
+
+\[
+    t_0=0,
+    \qquad
+    t_k=\sum_{i=0}^{k-1}h_i.
+\]
+
+The timestep schedule is prescribed before simulation; it is not selected
+adaptively from the evolving state.
+
 ## Feedback torque
 
 `simulate_controlled_rigid_body` evaluates
