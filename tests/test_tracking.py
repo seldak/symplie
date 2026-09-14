@@ -198,7 +198,21 @@ def test_tracking_simulation_is_differentiable_with_respect_to_gains():
         )
         return attitude_error**2 + rate_error**2
 
-    gradient = jax.jit(jax.grad(final_loss))(jnp.array([5.0, 3.0]))
+    gains = jnp.array([5.0, 3.0])
+    gradient = jax.jit(jax.grad(final_loss))(gains)
+
+    epsilon = 1e-4
+    attitude_gain_direction = jnp.array([1.0, 0.0])
+    finite_difference = (
+        final_loss(gains + epsilon * attitude_gain_direction)
+        - final_loss(gains - epsilon * attitude_gain_direction)
+    ) / (2.0 * epsilon)
 
     assert bool(jnp.all(jnp.isfinite(gradient)))
     assert float(jnp.linalg.norm(gradient)) > 0.0
+    np.testing.assert_allclose(
+        gradient[0],
+        finite_difference,
+        rtol=1e-6,
+        atol=1e-10,
+    )
