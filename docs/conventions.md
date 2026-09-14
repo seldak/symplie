@@ -28,8 +28,8 @@ update.
 
 ## Timesteps
 
-`simulate_free_rigid_body` and `simulate_rigid_body` accept either one scalar
-timestep or an array with one positive interval per transition. For intervals
+The simulation functions accept either one scalar timestep or an array with
+one positive interval per transition. For intervals
 \(h_0,\ldots,h_{N-1}\), the state-node times are
 
 \[
@@ -51,9 +51,11 @@ adaptively from the evolving state.
 \]
 
 at the beginning of each interval and holds it constant until the next sample.
-It returns one applied torque per transition, with shape `(steps, 3)`. This
-models a digital controller under zero-order hold; it is not the same sampling
-contract as a prescribed nodal torque history.
+For nonuniform timesteps, the evaluation time is the accumulated node time
+\(t_k=\sum_{i<k}h_i\). The function returns one applied torque per transition,
+with shape `(steps, 3)`. This models a digital controller under zero-order
+hold; it is not the same sampling contract as a prescribed nodal torque
+history.
 
 ## Twist coordinates
 

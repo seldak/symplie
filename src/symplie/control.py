@@ -6,7 +6,7 @@ from typing import Any, Callable
 import jax
 import jax.numpy as jnp
 
-from .integrators import SolverInfo, rigid_body_step
+from .integrators import SolverInfo, _step_sizes, rigid_body_step
 from .so3 import vee
 
 
@@ -216,7 +216,7 @@ def simulate_controlled_rigid_body(
     J: jnp.ndarray,
     torque_fn: Callable,
     torque_params: Any,
-    dt: float,
+    dt: float | jnp.ndarray,
     steps: int,
     newton_iters: int = 8,
     tolerance: float = 1e-10,
@@ -248,8 +248,10 @@ def simulate_controlled_rigid_body(
         with shape (3,). The callable is static under JIT.
     torque_params : PyTree
         Parameters passed unchanged to torque_fn.
-    dt : float or jax.Array
-        Constant controller and integration timestep.
+    dt : float or jax.Array, shape (steps,)
+        Positive controller and integration timestep. A scalar applies the
+        same interval to every transition; an array supplies one interval per
+        transition.
     steps : int
         Number of controlled transitions. This value is static under JIT.
     newton_iters : int, optional
@@ -275,9 +277,17 @@ def simulate_controlled_rigid_body(
     sample times. It is distinct from evaluating a prescribed torque at both
     nodes, as done by simulate_rigid_body.
     """
-    def scan_fn(carry, step_index):
+    timesteps = _step_sizes(dt, steps)
+    step_times = jnp.concatenate(
+        [
+            jnp.zeros((1,), dtype=timesteps.dtype),
+            jnp.cumsum(timesteps),
+        ]
+    )[:-1]
+
+    def scan_fn(carry, step_data):
         R, pi = carry
-        time = step_index * dt
+        time, dt_k = step_data
         torque = torque_fn(time, R, pi, J, torque_params)
 
         R_next, pi_next, solver_info = rigid_body_step(
@@ -286,7 +296,7 @@ def simulate_controlled_rigid_body(
             J,
             torque,
             torque,
-            dt,
+            dt_k,
             newton_iters=newton_iters,
             tolerance=tolerance,
         )
@@ -296,7 +306,7 @@ def simulate_controlled_rigid_body(
     (_, _), (Rh, ph, body_torques, solver_info) = jax.lax.scan(
         scan_fn,
         (R0, pi0),
-        jnp.arange(steps),
+        (step_times, timesteps),
     )
 
     Rs = jnp.concatenate([R0[None, ...], Rh], axis=0)

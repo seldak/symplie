@@ -8,6 +8,7 @@ import pytest
 
 from symplie import (
     expSO3,
+    simulate_controlled_rigid_body,
     simulate_free_rigid_body,
     simulate_rigid_body,
     spatial_momentum,
@@ -27,6 +28,14 @@ def assert_same_trajectory(first, second):
         atol=1e-13,
     )
     np.testing.assert_array_equal(first_info.converged, second_info.converged)
+
+
+def constant_controller(_, __, ___, ____, torque):
+    return torque
+
+
+def time_controller(time, _, __, ___, scale):
+    return jnp.array([scale * time, 0.0, 0.0])
 
 
 def test_free_simulation_accepts_one_timestep_per_transition():
@@ -152,7 +161,109 @@ def test_forced_simulation_is_differentiable_with_respect_to_timesteps():
     assert float(jnp.linalg.norm(gradient)) > 0.0
 
 
-@pytest.mark.parametrize("simulator", ["free", "forced"])
+def test_controlled_simulation_accepts_one_timestep_per_transition():
+    R0 = expSO3(jnp.array([0.2, -0.1, 0.3]))
+    pi0 = jnp.array([0.4, -0.25, 0.15])
+    J = jnp.diag(jnp.array([1.0, 1.4, 1.8]))
+    torque = jnp.array([0.02, -0.01, 0.03])
+    steps = 12
+    dt = 0.01
+
+    scalar_result = simulate_controlled_rigid_body(
+        R0,
+        pi0,
+        J,
+        constant_controller,
+        torque,
+        dt,
+        steps,
+    )
+    array_result = simulate_controlled_rigid_body(
+        R0,
+        pi0,
+        J,
+        constant_controller,
+        torque,
+        jnp.full((steps,), dt),
+        steps,
+    )
+
+    np.testing.assert_allclose(
+        scalar_result[0], array_result[0], rtol=1e-13, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        scalar_result[1], array_result[1], rtol=1e-13, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        scalar_result[2], array_result[2], rtol=1e-13, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        scalar_result[3].residual_norm,
+        array_result[3].residual_norm,
+        rtol=1e-13,
+        atol=1e-13,
+    )
+    np.testing.assert_array_equal(
+        scalar_result[3].converged,
+        array_result[3].converged,
+    )
+
+
+def test_controlled_simulation_uses_accumulated_node_times():
+    timesteps = jnp.array([0.008, 0.012, 0.009, 0.011])
+    expected_times = jnp.concatenate(
+        [jnp.zeros(1), jnp.cumsum(timesteps)]
+    )[:-1]
+
+    _, _, torques, solver_info = simulate_controlled_rigid_body(
+        jnp.eye(3),
+        jnp.array([0.2, -0.1, 0.3]),
+        jnp.diag(jnp.array([1.0, 1.4, 1.8])),
+        time_controller,
+        2.0,
+        timesteps,
+        steps=timesteps.size,
+    )
+
+    np.testing.assert_allclose(
+        torques[:, 0],
+        2.0 * expected_times,
+        rtol=1e-14,
+        atol=1e-14,
+    )
+    np.testing.assert_allclose(
+        torques[:, 1:],
+        jnp.zeros_like(torques[:, 1:]),
+        rtol=0.0,
+        atol=0.0,
+    )
+    assert bool(jnp.all(solver_info.converged))
+
+
+def test_controlled_simulation_is_differentiable_with_respect_to_timesteps():
+    R0 = jnp.eye(3)
+    pi0 = jnp.array([0.25, -0.1, 0.2])
+    J = jnp.diag(jnp.array([1.0, 1.3, 1.7]))
+
+    def final_attitude_loss(timesteps):
+        Rs, _, _, _ = simulate_controlled_rigid_body(
+            R0,
+            pi0,
+            J,
+            time_controller,
+            1.0,
+            timesteps,
+            steps=4,
+        )
+        return Rs[-1, 0, 1]
+
+    gradient = jax.jit(jax.grad(final_attitude_loss))(jnp.full((4,), 0.01))
+
+    assert bool(jnp.all(jnp.isfinite(gradient)))
+    assert float(jnp.linalg.norm(gradient)) > 0.0
+
+
+@pytest.mark.parametrize("simulator", ["free", "forced", "controlled"])
 def test_simulation_rejects_wrong_timestep_shape(simulator):
     R0 = jnp.eye(3)
     pi0 = jnp.array([0.2, -0.1, 0.3])
@@ -162,6 +273,16 @@ def test_simulation_rejects_wrong_timestep_shape(simulator):
     with pytest.raises(ValueError, match="dt must be scalar or have shape"):
         if simulator == "free":
             simulate_free_rigid_body(R0, pi0, J, wrong_shape, steps=3)
-        else:
+        elif simulator == "forced":
             torques = jnp.zeros((4, 3))
             simulate_rigid_body(R0, pi0, J, torques, wrong_shape)
+        else:
+            simulate_controlled_rigid_body(
+                R0,
+                pi0,
+                J,
+                constant_controller,
+                jnp.zeros(3),
+                wrong_shape,
+                steps=3,
+            )
