@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "symplie"
 version = "0.2.0"
-description = "JAX Lie-group operations and structure-preserving rigid-body integration"
+description = "Moser-Veselov rigid-body attitude dynamics and geometric control in JAX"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

@@ -2,18 +2,19 @@
 
 [![CI](https://github.com/seldak/symplie/actions/workflows/ci.yml/badge.svg)](https://github.com/seldak/symplie/actions/workflows/ci.yml)
 
-SympLie is an experimental JAX package for differentiable Lie-group
-rigid-body dynamics and control.
+SympLie is an experimental JAX package for simulating and differentiating
+controlled rigid-body attitude dynamics on $SO(3)$. Its core is a
+Moser–Veselov variational integrator for rotational motion.
 
 It currently provides:
 
-- Numerically stable, batched $SO(3)$ and $SE(3)$ exponential and
-  logarithm maps.
 - Torque-free and forced Moser–Veselov integration, including a composable
   step for custom JAX scans and zero-order-hold control loops.
-- Geometric attitude stabilization and trajectory tracking, plus gyroscope
-  propagation with optional bias compensation.
-- JIT compilation, automatic differentiation, and per-step solver diagnostics.
+- The $SO(3)$ maps, invariant diagnostics, and nonlinear-solver diagnostics
+  needed to use and inspect that step.
+- Geometric attitude stabilization and trajectory tracking.
+- Gyroscope attitude propagation with optional bias compensation.
+- Batched geometry, JIT compilation, and automatic differentiation.
 
 ## Installation
 
@@ -89,4 +90,6 @@ public API.
 SympLie deliberately focuses on rotational dynamics and control; it is not a
 replacement for jaxlie, Sophus, Drake, or Pinocchio. It does not implement
 translation, full $SE(3)$ rigid-body dynamics, contact, constraints, actuator
-allocation, state estimation, or robotics middleware.
+allocation, state estimation, or robotics middleware. The package includes
+$SE(3)$ exponential and logarithm utilities, but they are not part of its
+dynamics model.
